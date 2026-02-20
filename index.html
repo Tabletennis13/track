@@ -3,50 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Release Tracker</title>
+    <title>Release Tracker - Placebo Beats & PLENUM</title>
     <style>
+        /* Базовые стили */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 10px;
+            font-family: Arial, sans-serif;
+            background: #667eea;
+            padding: 15px;
         }
-
+        
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
-
+        
         h1 {
             text-align: center;
             color: white;
             margin-bottom: 20px;
+            font-size: 28px;
         }
-
-        .add-project-form {
+        
+        /* Форма добавления проекта */
+        .form-section {
             background: white;
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
         }
-
+        
         .form-group {
             margin-bottom: 15px;
         }
-
+        
         label {
             display: block;
             margin-bottom: 5px;
+            font-weight: bold;
             color: #333;
-            font-weight: 600;
         }
-
+        
         input {
             width: 100%;
             padding: 10px;
@@ -54,113 +56,129 @@
             border-radius: 5px;
             font-size: 16px;
         }
-
+        
         button {
             background: #667eea;
             color: white;
             border: none;
             padding: 12px 20px;
             border-radius: 5px;
-            cursor: pointer;
             font-size: 16px;
-            font-weight: 600;
+            cursor: pointer;
             width: 100%;
         }
-
+        
         button:hover {
             background: #764ba2;
         }
-
+        
+        /* Сетка проектов */
         .projects-grid {
             display: grid;
             grid-template-columns: 1fr;
             gap: 20px;
         }
-
-        @media (min-width: 640px) {
+        
+        @media (min-width: 600px) {
             .projects-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
         }
-
-        @media (min-width: 1024px) {
+        
+        @media (min-width: 900px) {
             .projects-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
         }
-
+        
+        /* Карточка проекта */
         .project-card {
             background: white;
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-
+        
         .project-image {
             width: 100%;
-            height: 200px;
+            height: 180px;
             object-fit: cover;
+            background: #f0f0f0;
         }
-
+        
         .project-header {
             padding: 15px;
             background: #f8f9fa;
             border-bottom: 2px solid #667eea;
         }
-
+        
         .project-header h2 {
             color: #333;
-            font-size: 1.2rem;
+            font-size: 20px;
         }
-
+        
         .releases-list {
             padding: 15px;
         }
-
+        
+        /* Элемент релиза */
         .release-item {
             padding: 10px;
             border-bottom: 1px solid #eee;
         }
-
-        .release-info {
+        
+        .release-header {
             display: flex;
             justify-content: space-between;
             margin-bottom: 5px;
         }
-
+        
         .track-name {
-            font-weight: 600;
+            font-weight: bold;
             color: #333;
         }
-
+        
         .release-date {
             color: #666;
         }
-
-        .warning, .danger {
+        
+        /* Статусы */
+        .status {
             padding: 8px;
             border-radius: 5px;
             margin-top: 5px;
-            font-size: 0.9rem;
+            font-size: 14px;
         }
-
-        .warning {
+        
+        .status-warning {
             background: #fff3cd;
             border: 1px solid #ffeeba;
             color: #856404;
         }
-
-        .danger {
+        
+        .status-danger {
             background: #f8d7da;
             border: 1px solid #f5c6cb;
             color: #721c24;
         }
-
+        
+        .status-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        /* Кнопка добавления релиза */
         .add-release-btn {
             background: #28a745;
-            margin-top: 10px;
+            margin-top: 15px;
         }
-
+        
+        .add-release-btn:hover {
+            background: #218838;
+        }
+        
+        /* Модальное окно */
         .modal {
             display: none;
             position: fixed;
@@ -173,24 +191,54 @@
             align-items: center;
             z-index: 1000;
         }
-
+        
         .modal-content {
             background: white;
-            padding: 20px;
+            padding: 25px;
             border-radius: 10px;
             max-width: 500px;
             width: 90%;
         }
-
+        
         .close {
             float: right;
             font-size: 28px;
             cursor: pointer;
             color: #aaa;
         }
-
+        
         .close:hover {
             color: #333;
+        }
+        
+        /* Текст-заглушка */
+        .no-releases {
+            color: #999;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        /* Мобильная кнопка */
+        .mobile-add-btn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            font-size: 30px;
+            border: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+        
+        @media (max-width: 480px) {
+            .mobile-add-btn {
+                display: block;
+            }
         }
     </style>
 </head>
@@ -198,8 +246,9 @@
     <div class="container">
         <h1>🎵 Release Tracker</h1>
         
-        <div class="add-project-form">
-            <h2>➕ Добавить проект</h2>
+        <!-- Форма добавления проекта -->
+        <div class="form-section" id="projectForm">
+            <h2 style="margin-bottom: 15px;">➕ Добавить проект</h2>
             <div class="form-group">
                 <label>Название проекта:</label>
                 <input type="text" id="projectName" placeholder="Например: Placebo Beats">
@@ -210,14 +259,19 @@
             </div>
             <button onclick="addProject()">Добавить проект</button>
         </div>
-
+        
+        <!-- Список проектов -->
         <div class="projects-grid" id="projectsGrid"></div>
     </div>
-
-    <div id="releaseModal" class="modal">
+    
+    <!-- Мобильная кнопка -->
+    <button class="mobile-add-btn" onclick="toggleForm()">➕</button>
+    
+    <!-- Модальное окно для добавления релиза -->
+    <div class="modal" id="releaseModal">
         <div class="modal-content">
             <span class="close" onclick="closeModal()">&times;</span>
-            <h2>➕ Добавить релиз</h2>
+            <h2 style="margin-bottom: 20px;">➕ Добавить релиз</h2>
             <div class="form-group">
                 <label>Название трека:</label>
                 <input type="text" id="trackName" placeholder="Введите название трека">
@@ -230,101 +284,123 @@
         </div>
     </div>
 
+    <!-- Подключаем Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <script>
-        // УБЕДИТЕСЬ, ЧТО ЭТОТ КОД ТОЛЬКО ОДИН РАЗ В ФАЙЛЕ!
-        
-        // Настройки Supabase
+        // === НАСТРОЙКИ SUPABASE ===
         const SUPABASE_URL = 'https://bqycjfcjtdawyrysgrbw.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeWNqZmNqdGRhd3lyeXNncmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MDE5NzAsImV4cCI6MjA4MjE3Nzk3MH0.LEOUMFAd1cz_1e4uawJcaZLPCMqAQHEWM52Oy7fDjsE';
         
-        // Создаем клиент Supabase
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // === СОЗДАЕМ КЛИЕНТ SUPABASE ===
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // === ПЕРЕМЕННЫЕ ===
+        let selectedProjectId = null;
 
-        let currentProjectId = null;
+        // === ЗАПУСК ПРИ ЗАГРУЗКЕ ===
+        document.addEventListener('DOMContentLoaded', function() {
+            startApp();
+        });
 
-        // Запускаем при загрузке страницы
-        window.onload = function() {
-            initializeProjects();
-        };
-
-        async function initializeProjects() {
-            // Проверяем, есть ли уже проекты
-            const { data: existingProjects } = await supabase
-                .from('projects')
-                .select('*');
-
-            if (!existingProjects || existingProjects.length === 0) {
-                // Добавляем начальные проекты
-                await supabase.from('projects').insert([
-                    { 
-                        name: 'Placebo Beats', 
-                        image_url: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Placebo+Beats' 
-                    },
-                    { 
-                        name: 'PLENUM', 
-                        image_url: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=PLENUM' 
-                    }
-                ]);
-            }
-            
-            loadProjects();
+        // === ОСНОВНАЯ ФУНКЦИЯ ===
+        async function startApp() {
+            await createInitialProjects();
+            await loadAllProjects();
         }
 
-        async function loadProjects() {
-            const { data: projects } = await supabase
+        // === СОЗДАНИЕ НАЧАЛЬНЫХ ПРОЕКТОВ ===
+        async function createInitialProjects() {
+            // Проверяем, есть ли проекты
+            const { data: projects } = await supabaseClient
+                .from('projects')
+                .select('*');
+            
+            // Если проектов нет, создаем
+            if (!projects || projects.length === 0) {
+                await supabaseClient
+                    .from('projects')
+                    .insert([
+                        { 
+                            name: 'Placebo Beats', 
+                            image_url: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Placebo+Beats' 
+                        },
+                        { 
+                            name: 'PLENUM', 
+                            image_url: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=PLENUM' 
+                        }
+                    ]);
+            }
+        }
+
+        // === ЗАГРУЗКА ВСЕХ ПРОЕКТОВ ===
+        async function loadAllProjects() {
+            // Получаем все проекты
+            const { data: projects } = await supabaseClient
                 .from('projects')
                 .select('*')
                 .order('name');
-
-            const projectsGrid = document.getElementById('projectsGrid');
-            projectsGrid.innerHTML = '';
-
+            
+            const grid = document.getElementById('projectsGrid');
+            grid.innerHTML = '';
+            
+            // Для каждого проекта загружаем релизы
             for (const project of projects || []) {
-                const { data: releases } = await supabase
+                const { data: releases } = await supabaseClient
                     .from('releases')
                     .select('*')
                     .eq('project_id', project.id)
                     .order('release_date');
-
-                const projectCard = createProjectCard(project, releases || []);
-                projectsGrid.appendChild(projectCard);
+                
+                const card = createProjectCard(project, releases || []);
+                grid.appendChild(card);
             }
         }
 
+        // === СОЗДАНИЕ КАРТОЧКИ ПРОЕКТА ===
         function createProjectCard(project, releases) {
             const card = document.createElement('div');
             card.className = 'project-card';
-
-            const imageHtml = project.image_url 
-                ? `<img src="${project.image_url}" alt="${project.name}" class="project-image">`
-                : '<div class="project-image" style="background: #ddd; display: flex; align-items: center; justify-content: center;">Нет изображения</div>';
-
-            let releasesHtml = '';
-            releases.forEach(release => {
-                const status = checkReleaseStatus(release.release_date);
-                const deadlineDate = getDeadlineDate(release.release_date);
-                
-                releasesHtml += `
-                    <div class="release-item">
-                        <div class="release-info">
-                            <span class="track-name">${escapeHtml(release.track_name)}</span>
-                            <span class="release-date">${formatDate(release.release_date)}</span>
-                        </div>
-                        ${status ? `
-                            <div class="${status.class}">
-                                ${status.emoji} ${status.text}
-                                ${status.deadline ? `<br><small>Сдать до: ${formatDate(deadlineDate)}</small>` : ''}
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            });
-
-            if (releases.length === 0) {
-                releasesHtml = '<div style="color: #999; text-align: center; padding: 20px;">Нет запланированных релизов</div>';
+            
+            // Изображение
+            let imageHtml = '<div class="project-image" style="background: #ddd; display: flex; align-items: center; justify-content: center;">Нет фото</div>';
+            if (project.image_url) {
+                imageHtml = `<img src="${project.image_url}" class="project-image">`;
             }
-
+            
+            // Релизы
+            let releasesHtml = '';
+            if (releases.length === 0) {
+                releasesHtml = '<div class="no-releases">Нет релизов</div>';
+            } else {
+                releases.forEach(release => {
+                    const status = calculateStatus(release.release_date);
+                    const deadline = getDeadlineDate(release.release_date);
+                    
+                    let statusHtml = '';
+                    if (status) {
+                        statusHtml = `
+                            <div class="status ${status.class}">
+                                ${status.emoji} ${status.text}
+                                <br>
+                                <small>Сдать до: ${formatDate(deadline)}</small>
+                            </div>
+                        `;
+                    }
+                    
+                    releasesHtml += `
+                        <div class="release-item">
+                            <div class="release-header">
+                                <span class="track-name">${escapeHtml(release.track_name)}</span>
+                                <span class="release-date">${formatDate(release.release_date)}</span>
+                            </div>
+                            ${statusHtml}
+                        </div>
+                    `;
+                });
+            }
+            
+            // Собираем карточку
             card.innerHTML = `
                 ${imageHtml}
                 <div class="project-header">
@@ -337,11 +413,12 @@
                     </button>
                 </div>
             `;
-
+            
             return card;
         }
 
-        function checkReleaseStatus(releaseDate) {
+        // === РАСЧЕТ СТАТУСА ===
+        function calculateStatus(releaseDate) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
@@ -349,40 +426,40 @@
             release.setHours(0, 0, 0, 0);
             
             const deadline = new Date(release);
-            deadline.setDate(release.getDate() - 21);
-
+            deadline.setDate(release.getDate() - 21); // 3 недели до релиза
+            
+            // Если дедлайн прошел
             if (today > deadline) {
                 return {
-                    class: 'danger',
+                    class: 'status-danger',
                     emoji: '🔥',
-                    text: 'Просрочено! Трек нужно было сдать!',
-                    deadline: true
+                    text: 'Просрочено! Нужно было сдать'
                 };
             }
             
+            // Считаем дни до дедлайна
             const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
             
             if (daysLeft <= 7) {
                 return {
-                    class: 'warning',
+                    class: 'status-warning',
                     emoji: '⚠️',
-                    text: `Срочно! Осталось ${daysLeft} ${getDaysWord(daysLeft)} до дедлайна`,
-                    deadline: true
+                    text: `Срочно! Осталось ${daysLeft} ${getDaysWord(daysLeft)}`
                 };
             }
             
             if (daysLeft <= 14) {
                 return {
-                    class: 'warning',
+                    class: 'status-warning',
                     emoji: '📝',
-                    text: `Пора делать трек! Осталось ${daysLeft} ${getDaysWord(daysLeft)}`,
-                    deadline: true
+                    text: `Пора делать! Осталось ${daysLeft} ${getDaysWord(daysLeft)}`
                 };
             }
-
+            
             return null;
         }
 
+        // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
         function getDeadlineDate(releaseDate) {
             const date = new Date(releaseDate);
             date.setDate(date.getDate() - 21);
@@ -395,9 +472,9 @@
             return 'дней';
         }
 
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('ru-RU');
+        function formatDate(date) {
+            const d = new Date(date);
+            return d.toLocaleDateString('ru-RU');
         }
 
         function escapeHtml(text) {
@@ -406,86 +483,84 @@
             return div.innerHTML;
         }
 
-        // Глобальные функции для кнопок
+        function getNextFriday() {
+            const date = new Date();
+            const day = date.getDay();
+            const daysToFriday = (5 - day + 7) % 7;
+            date.setDate(date.getDate() + (daysToFriday === 0 ? 7 : daysToFriday));
+            return date;
+        }
+
+        // === ФУНКЦИИ ДЛЯ КНОПОК ===
         window.openReleaseModal = function(projectId) {
-            currentProjectId = projectId;
+            selectedProjectId = projectId;
             document.getElementById('releaseModal').style.display = 'flex';
             document.getElementById('trackName').value = '';
             
-            // Устанавливаем ближайшую пятницу
             const nextFriday = getNextFriday();
             document.getElementById('releaseDate').value = nextFriday.toISOString().split('T')[0];
         };
 
         window.closeModal = function() {
             document.getElementById('releaseModal').style.display = 'none';
-            currentProjectId = null;
+            selectedProjectId = null;
         };
-
-        function getNextFriday() {
-            const date = new Date();
-            date.setDate(date.getDate() + ((5 - date.getDay() + 7) % 7));
-            return date;
-        }
 
         window.addProject = async function() {
             const name = document.getElementById('projectName').value.trim();
-            const imageUrl = document.getElementById('projectImage').value.trim();
-
+            const image = document.getElementById('projectImage').value.trim();
+            
             if (!name) {
                 alert('Введите название проекта');
                 return;
             }
-
-            const { error } = await supabase
+            
+            await supabaseClient
                 .from('projects')
-                .insert([{ 
-                    name, 
-                    image_url: imageUrl || null 
-                }]);
-
-            if (error) {
-                alert('Ошибка при добавлении проекта');
-                console.error(error);
-            } else {
-                document.getElementById('projectName').value = '';
-                document.getElementById('projectImage').value = '';
-                loadProjects();
-            }
+                .insert([{ name, image_url: image || null }]);
+            
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectImage').value = '';
+            
+            await loadAllProjects();
         };
 
         window.addRelease = async function() {
-            const trackName = document.getElementById('trackName').value.trim();
-            const releaseDate = document.getElementById('releaseDate').value;
-
-            if (!trackName || !releaseDate) {
+            const track = document.getElementById('trackName').value.trim();
+            const date = document.getElementById('releaseDate').value;
+            
+            if (!track || !date) {
                 alert('Заполните все поля');
                 return;
             }
-
-            if (!currentProjectId) {
+            
+            if (!selectedProjectId) {
                 alert('Ошибка: проект не выбран');
                 return;
             }
-
-            const { error } = await supabase
+            
+            await supabaseClient
                 .from('releases')
                 .insert([{
-                    project_id: currentProjectId,
-                    track_name: trackName,
-                    release_date: releaseDate
+                    project_id: selectedProjectId,
+                    track_name: track,
+                    release_date: date
                 }]);
+            
+            closeModal();
+            await loadAllProjects();
+        };
 
-            if (error) {
-                alert('Ошибка при добавлении релиза');
-                console.error(error);
+        window.toggleForm = function() {
+            const form = document.getElementById('projectForm');
+            if (form.style.display === 'none') {
+                form.style.display = 'block';
             } else {
-                closeModal();
-                loadProjects();
+                form.style.display = 'none';
             }
         };
 
-        // Закрытие модального окна при клике вне его
+        // Закрытие модального окна при клике на фон
         window.onclick = function(event) {
             const modal = document.getElementById('releaseModal');
             if (event.target === modal) {
