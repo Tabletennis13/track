@@ -115,6 +115,11 @@
         .project-header h2 {
             color: #333;
             font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         
         .releases-list {
@@ -166,6 +171,31 @@
             background: #d4edda;
             border: 1px solid #c3e6cb;
             color: #155724;
+        }
+        
+        /* Бейдж для проекта */
+        .project-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .badge-warning {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .badge-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .badge-success {
+            background: #28a745;
+            color: white;
         }
         
         /* Кнопка добавления релиза */
@@ -357,6 +387,83 @@
             }
         }
 
+        // === ПОЛУЧЕНИЕ СТАТУСА ПРОЕКТА ===
+        function getProjectStatus(releases) {
+            if (!releases || releases.length === 0) return null;
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            let nearestRelease = null;
+            let nearestDays = Infinity;
+            
+            releases.forEach(release => {
+                const releaseDate = new Date(release.release_date);
+                releaseDate.setHours(0, 0, 0, 0);
+                
+                // Только будущие релизы
+                if (releaseDate >= today) {
+                    const deadline = new Date(releaseDate);
+                    deadline.setDate(releaseDate.getDate() - 14);
+                    
+                    const daysToDeadline = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+                    
+                    if (daysToDeadline < nearestDays) {
+                        nearestDays = daysToDeadline;
+                        nearestRelease = {
+                            date: releaseDate,
+                            deadline: deadline,
+                            daysLeft: daysToDeadline,
+                            trackName: release.track_name
+                        };
+                    }
+                }
+            });
+            
+            if (!nearestRelease) return null;
+            
+            // Определяем статус проекта
+            if (nearestRelease.daysLeft < 0) {
+                return {
+                    badge: {
+                        class: 'badge-danger',
+                        text: '🔥 Просрочен!',
+                        title: `Просрочен трек "${nearestRelease.trackName}"`
+                    },
+                    message: `🔥 СРОЧНО! Просрочен трек "${nearestRelease.trackName}"`
+                };
+            } else if (nearestRelease.daysLeft <= 3) {
+                return {
+                    badge: {
+                        class: 'badge-danger',
+                        text: '⚠️ КРИТИЧНО!',
+                        title: `Осталось ${nearestRelease.daysLeft} дня до дедлайна трека "${nearestRelease.trackName}"`
+                    },
+                    message: `⚠️ КРИТИЧНО! Осталось ${nearestRelease.daysLeft} дня на трек "${nearestRelease.trackName}"`
+                };
+            } else if (nearestRelease.daysLeft <= 7) {
+                return {
+                    badge: {
+                        class: 'badge-warning',
+                        text: '⚠️ Срочно!',
+                        title: `Осталось ${nearestRelease.daysLeft} дней до дедлайна трека "${nearestRelease.trackName}"`
+                    },
+                    message: `⚠️ Срочно! Осталось ${nearestRelease.daysLeft} дней на трек "${nearestRelease.trackName}"`
+                };
+            } else if (nearestRelease.daysLeft <= 10) {
+                return {
+                    badge: {
+                        class: 'badge-warning',
+                        text: '📝 Пора делать',
+                        title: `Осталось ${nearestRelease.daysLeft} дней до дедлайна трека "${nearestRelease.trackName}"`
+                    },
+                    message: `📝 Пора делать трек "${nearestRelease.trackName}"`
+                };
+            }
+            
+            return null;
+        }
+
         // === СОЗДАНИЕ КАРТОЧКИ ПРОЕКТА ===
         function createProjectCard(project, releases) {
             const card = document.createElement('div');
@@ -368,44 +475,78 @@
                 imageHtml = `<img src="${project.image_url}" class="project-image">`;
             }
             
+            // Получаем статус проекта
+            const projectStatus = getProjectStatus(releases);
+            
             // Релизы
             let releasesHtml = '';
+            let hasActiveReleases = false;
+            
             if (releases.length === 0) {
                 releasesHtml = '<div class="no-releases">Нет релизов</div>';
             } else {
                 releases.forEach(release => {
-                    const status = calculateStatus(release.release_date);
-                    const deadline = getDeadlineDate(release.release_date);
+                    // Показываем только будущие релизы или сегодняшние
+                    const releaseDate = new Date(release.release_date);
+                    releaseDate.setHours(0, 0, 0, 0);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
                     
-                    let statusHtml = '';
-                    if (status) {
-                        statusHtml = `
-                            <div class="status ${status.class}">
-                                ${status.emoji} ${status.text}
-                                <br>
-                                <small>Сдать до: ${formatDate(deadline)}</small>
+                    if (releaseDate >= today) {
+                        hasActiveReleases = true;
+                        const status = calculateStatus(release.release_date);
+                        const deadline = getDeadlineDate(release.release_date);
+                        
+                        let statusHtml = '';
+                        if (status) {
+                            statusHtml = `
+                                <div class="status ${status.class}">
+                                    ${status.emoji} ${status.text}
+                                    <br>
+                                    <small>Сдать до: ${formatDate(deadline)}</small>
+                                </div>
+                            `;
+                        }
+                        
+                        releasesHtml += `
+                            <div class="release-item">
+                                <div class="release-header">
+                                    <span class="track-name">${escapeHtml(release.track_name)}</span>
+                                    <span class="release-date">${formatDate(release.release_date)}</span>
+                                </div>
+                                ${statusHtml}
                             </div>
                         `;
                     }
-                    
-                    releasesHtml += `
-                        <div class="release-item">
-                            <div class="release-header">
-                                <span class="track-name">${escapeHtml(release.track_name)}</span>
-                                <span class="release-date">${formatDate(release.release_date)}</span>
-                            </div>
-                            ${statusHtml}
-                        </div>
-                    `;
                 });
             }
+            
+            // Если нет активных релизов
+            if (!hasActiveReleases) {
+                releasesHtml = '<div class="no-releases">Нет активных релизов</div>';
+            }
+            
+            // Создаем бейдж для проекта
+            const badgeHtml = projectStatus ? 
+                `<span class="project-badge ${projectStatus.badge.class}" title="${projectStatus.badge.title}">${projectStatus.badge.text}</span>` : 
+                '';
             
             // Собираем карточку
             card.innerHTML = `
                 ${imageHtml}
                 <div class="project-header">
-                    <h2>${escapeHtml(project.name)}</h2>
+                    <h2>
+                        ${escapeHtml(project.name)}
+                        ${badgeHtml}
+                    </h2>
                 </div>
+                ${projectStatus ? `
+                    <div style="padding: 0 15px;">
+                        <div class="status status-warning" style="margin-bottom: 10px;">
+                            ${projectStatus.message}
+                        </div>
+                    </div>
+                ` : ''}
                 <div class="releases-list">
                     ${releasesHtml}
                     <button class="add-release-btn" onclick="openReleaseModal(${project.id})">
@@ -417,7 +558,7 @@
             return card;
         }
 
-        // === РАСЧЕТ СТАТУСА ===
+        // === РАСЧЕТ СТАТУСА РЕЛИЗА ===
         function calculateStatus(releaseDate) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -425,8 +566,13 @@
             const release = new Date(releaseDate);
             release.setHours(0, 0, 0, 0);
             
+            // Если релиз уже прошел - не показываем статус
+            if (release < today) {
+                return null;
+            }
+            
             const deadline = new Date(release);
-            deadline.setDate(release.getDate() - 21); // 3 недели до релиза
+            deadline.setDate(release.getDate() - 14); // 2 недели до релиза
             
             // Если дедлайн прошел
             if (today > deadline) {
@@ -439,6 +585,14 @@
             
             // Считаем дни до дедлайна
             const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+            
+            if (daysLeft <= 3) {
+                return {
+                    class: 'status-danger',
+                    emoji: '⚠️',
+                    text: `Критично! Осталось ${daysLeft} ${getDaysWord(daysLeft)}`
+                };
+            }
             
             if (daysLeft <= 7) {
                 return {
@@ -462,7 +616,7 @@
         // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
         function getDeadlineDate(releaseDate) {
             const date = new Date(releaseDate);
-            date.setDate(date.getDate() - 21);
+            date.setDate(date.getDate() - 14); // 2 недели
             return date;
         }
 
