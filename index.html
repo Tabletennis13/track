@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Release Tracker - Placebo Beats & PLENUM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Release Tracker</title>
     <style>
         * {
             margin: 0;
@@ -27,16 +27,13 @@
             text-align: center;
             color: white;
             margin-bottom: 20px;
-            font-size: clamp(1.5rem, 5vw, 2.5rem);
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
         .add-project-form {
             background: white;
             padding: 20px;
-            border-radius: 15px;
+            border-radius: 10px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .form-group {
@@ -52,9 +49,9 @@
 
         input {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             border: 1px solid #ddd;
-            border-radius: 10px;
+            border-radius: 5px;
             font-size: 16px;
         }
 
@@ -62,13 +59,12 @@
             background: #667eea;
             color: white;
             border: none;
-            padding: 14px 20px;
-            border-radius: 10px;
+            padding: 12px 20px;
+            border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
             font-weight: 600;
             width: 100%;
-            transition: background 0.3s;
         }
 
         button:hover {
@@ -95,18 +91,15 @@
 
         .project-card {
             background: white;
-            border-radius: 15px;
+            border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
         }
 
         .project-image {
             width: 100%;
-            height: 180px;
+            height: 200px;
             object-fit: cover;
-            background: #f0f0f0;
         }
 
         .project-header {
@@ -118,45 +111,36 @@
         .project-header h2 {
             color: #333;
             font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 8px;
         }
 
         .releases-list {
             padding: 15px;
-            flex-grow: 1;
         }
 
         .release-item {
-            padding: 12px;
+            padding: 10px;
             border-bottom: 1px solid #eee;
         }
 
         .release-info {
             display: flex;
-            flex-direction: column;
-            gap: 5px;
-            margin-bottom: 8px;
-        }
-
-        @media (min-width: 480px) {
-            .release-info {
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-            }
+            justify-content: space-between;
+            margin-bottom: 5px;
         }
 
         .track-name {
             font-weight: 600;
             color: #333;
-            word-break: break-word;
         }
 
         .release-date {
             color: #666;
+        }
+
+        .warning, .danger {
+            padding: 8px;
+            border-radius: 5px;
+            margin-top: 5px;
             font-size: 0.9rem;
         }
 
@@ -164,10 +148,6 @@
             background: #fff3cd;
             border: 1px solid #ffeeba;
             color: #856404;
-            padding: 10px;
-            border-radius: 8px;
-            margin-top: 8px;
-            font-size: 0.9rem;
         }
 
         .danger {
@@ -178,11 +158,7 @@
 
         .add-release-btn {
             background: #28a745;
-            margin-top: 15px;
-        }
-
-        .add-release-btn:hover {
-            background: #218838;
+            margin-top: 10px;
         }
 
         .modal {
@@ -200,12 +176,10 @@
 
         .modal-content {
             background: white;
-            padding: 25px;
-            border-radius: 15px;
+            padding: 20px;
+            border-radius: 10px;
             max-width: 500px;
             width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
         }
 
         .close {
@@ -218,61 +192,13 @@
         .close:hover {
             color: #333;
         }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .status-warning {
-            background: #ffc107;
-            color: #000;
-        }
-
-        .status-danger {
-            background: #dc3545;
-            color: #fff;
-        }
-
-        .no-releases {
-            color: #999;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .mobile-add-button {
-            display: none;
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            border-radius: 30px;
-            background: #667eea;
-            color: white;
-            font-size: 30px;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            z-index: 100;
-            border: none;
-        }
-
-        @media (max-width: 480px) {
-            .mobile-add-button {
-                display: flex;
-            }
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎵 Release Tracker</h1>
         
-        <div class="add-project-form" id="projectForm">
+        <div class="add-project-form">
             <h2>➕ Добавить проект</h2>
             <div class="form-group">
                 <label>Название проекта:</label>
@@ -287,8 +213,6 @@
 
         <div class="projects-grid" id="projectsGrid"></div>
     </div>
-
-    <button class="mobile-add-button" onclick="toggleProjectForm()">➕</button>
 
     <div id="releaseModal" class="modal">
         <div class="modal-content">
@@ -308,17 +232,21 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // Инициализация Supabase
-        const supabaseUrl = 'https://bqycjfcjtdawyrysgrbw.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeWNqZmNqdGRhd3lyeXNncmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MDE5NzAsImV4cCI6MjA4MjE3Nzk3MH0.LEOUMFAd1cz_1e4uawJcaZLPCMqAQHEWM52Oy7fDjsE';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        // УБЕДИТЕСЬ, ЧТО ЭТОТ КОД ТОЛЬКО ОДИН РАЗ В ФАЙЛЕ!
+        
+        // Настройки Supabase
+        const SUPABASE_URL = 'https://bqycjfcjtdawyrysgrbw.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeWNqZmNqdGRhd3lyeXNncmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MDE5NzAsImV4cCI6MjA4MjE3Nzk3MH0.LEOUMFAd1cz_1e4uawJcaZLPCMqAQHEWM52Oy7fDjsE';
+        
+        // Создаем клиент Supabase
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentProjectId = null;
 
-        // Загружаем проекты при запуске
-        document.addEventListener('DOMContentLoaded', function() {
+        // Запускаем при загрузке страницы
+        window.onload = function() {
             initializeProjects();
-        });
+        };
 
         async function initializeProjects() {
             // Проверяем, есть ли уже проекты
@@ -383,11 +311,10 @@
                             <span class="track-name">${escapeHtml(release.track_name)}</span>
                             <span class="release-date">${formatDate(release.release_date)}</span>
                         </div>
-                        ${status.needsAttention ? `
+                        ${status ? `
                             <div class="${status.class}">
-                                ${status.emoji} ${status.message}
-                                <br>
-                                <small>📅 Сдать до: ${formatDate(deadlineDate)}</small>
+                                ${status.emoji} ${status.text}
+                                ${status.deadline ? `<br><small>Сдать до: ${formatDate(deadlineDate)}</small>` : ''}
                             </div>
                         ` : ''}
                     </div>
@@ -395,29 +322,13 @@
             });
 
             if (releases.length === 0) {
-                releasesHtml = '<div class="no-releases">Нет запланированных релизов</div>';
-            }
-
-            const nextRelease = getNextRelease(releases);
-            let nextReleaseBadge = '';
-            if (nextRelease) {
-                const status = checkReleaseStatus(nextRelease.release_date);
-                if (status.needsAttention) {
-                    nextReleaseBadge = `
-                        <span class="status-badge ${status.class}">
-                            ${status.emoji} ${status.shortMessage}
-                        </span>
-                    `;
-                }
+                releasesHtml = '<div style="color: #999; text-align: center; padding: 20px;">Нет запланированных релизов</div>';
             }
 
             card.innerHTML = `
                 ${imageHtml}
                 <div class="project-header">
-                    <h2>
-                        ${escapeHtml(project.name)}
-                        ${nextReleaseBadge}
-                    </h2>
+                    <h2>${escapeHtml(project.name)}</h2>
                 </div>
                 <div class="releases-list">
                     ${releasesHtml}
@@ -440,58 +351,42 @@
             const deadline = new Date(release);
             deadline.setDate(release.getDate() - 21);
 
-            const timeDiff = deadline - today;
-            const daysUntilDeadline = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-
             if (today > deadline) {
                 return {
-                    needsAttention: true,
                     class: 'danger',
                     emoji: '🔥',
-                    message: 'Просрочено! Трек нужно было сдать!',
-                    shortMessage: 'Просрочено!'
+                    text: 'Просрочено! Трек нужно было сдать!',
+                    deadline: true
                 };
             }
             
-            if (daysUntilDeadline <= 7) {
+            const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+            
+            if (daysLeft <= 7) {
                 return {
-                    needsAttention: true,
                     class: 'warning',
                     emoji: '⚠️',
-                    message: `Срочно! Осталось ${daysUntilDeadline} ${getDaysWord(daysUntilDeadline)} до дедлайна`,
-                    shortMessage: `${daysUntilDeadline} ${getDaysWord(daysUntilDeadline)}`
+                    text: `Срочно! Осталось ${daysLeft} ${getDaysWord(daysLeft)} до дедлайна`,
+                    deadline: true
                 };
             }
             
-            if (daysUntilDeadline <= 14) {
+            if (daysLeft <= 14) {
                 return {
-                    needsAttention: true,
                     class: 'warning',
                     emoji: '📝',
-                    message: `Пора делать трек! Осталось ${daysUntilDeadline} ${getDaysWord(daysUntilDeadline)}`,
-                    shortMessage: `${daysUntilDeadline} ${getDaysWord(daysUntilDeadline)}`
+                    text: `Пора делать трек! Осталось ${daysLeft} ${getDaysWord(daysLeft)}`,
+                    deadline: true
                 };
             }
 
-            return { needsAttention: false };
+            return null;
         }
 
         function getDeadlineDate(releaseDate) {
             const date = new Date(releaseDate);
             date.setDate(date.getDate() - 21);
             return date;
-        }
-
-        function getNextRelease(releases) {
-            if (!releases || releases.length === 0) return null;
-            
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            return releases
-                .map(r => ({...r, releaseDate: new Date(r.release_date)}))
-                .filter(r => r.releaseDate >= today)
-                .sort((a, b) => a.releaseDate - b.releaseDate)[0];
         }
 
         function getDaysWord(days) {
@@ -502,11 +397,7 @@
 
         function formatDate(dateString) {
             const date = new Date(dateString);
-            return date.toLocaleDateString('ru-RU', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
+            return date.toLocaleDateString('ru-RU');
         }
 
         function escapeHtml(text) {
@@ -515,12 +406,13 @@
             return div.innerHTML;
         }
 
-        // Глобальные функции
+        // Глобальные функции для кнопок
         window.openReleaseModal = function(projectId) {
             currentProjectId = projectId;
             document.getElementById('releaseModal').style.display = 'flex';
             document.getElementById('trackName').value = '';
             
+            // Устанавливаем ближайшую пятницу
             const nextFriday = getNextFriday();
             document.getElementById('releaseDate').value = nextFriday.toISOString().split('T')[0];
         };
@@ -532,9 +424,7 @@
 
         function getNextFriday() {
             const date = new Date();
-            const day = date.getDay();
-            const daysUntilFriday = (5 - day + 7) % 7;
-            date.setDate(date.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
+            date.setDate(date.getDate() + ((5 - date.getDay() + 7) % 7));
             return date;
         }
 
@@ -555,16 +445,12 @@
                 }]);
 
             if (error) {
-                console.error('Error:', error);
                 alert('Ошибка при добавлении проекта');
+                console.error(error);
             } else {
                 document.getElementById('projectName').value = '';
                 document.getElementById('projectImage').value = '';
                 loadProjects();
-                
-                if (window.innerWidth <= 480) {
-                    document.getElementById('projectForm').style.display = 'none';
-                }
             }
         };
 
@@ -591,17 +477,12 @@
                 }]);
 
             if (error) {
-                console.error('Error:', error);
                 alert('Ошибка при добавлении релиза');
+                console.error(error);
             } else {
                 closeModal();
                 loadProjects();
             }
-        };
-
-        window.toggleProjectForm = function() {
-            const form = document.getElementById('projectForm');
-            form.style.display = form.style.display === 'none' ? 'block' : 'none';
         };
 
         // Закрытие модального окна при клике вне его
