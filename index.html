@@ -197,6 +197,12 @@
             opacity: 0.9;
         }
         
+        .signal-highlight {
+            font-weight: bold;
+            font-size: 16px;
+            color: inherit;
+        }
+        
         /* Кнопка добавления релиза */
         .add-release-btn {
             background: #28a745;
@@ -309,7 +315,7 @@
                 <input type="text" id="trackName" placeholder="Введите название трека">
             </div>
             <div class="form-group">
-                <label>Дата релиза:</label>
+                <label>Дата релиза (пятница):</label>
                 <input type="date" id="releaseDate">
             </div>
             <button onclick="addRelease()">Добавить релиз</button>
@@ -329,7 +335,7 @@
         
         // === ПЕРЕМЕННЫЕ ===
         let selectedProjectId = null;
-        const BUFFER_DAYS = 18; // 2.5 недели = 17.5 дней, округляем до 18
+        const BUFFER_DAYS = 17.5; // 2.5 недели
 
         // === ЗАПУСК ПРИ ЗАГРУЗКЕ ===
         document.addEventListener('DOMContentLoaded', function() {
@@ -366,6 +372,58 @@
             }
         }
 
+        // === ПОЛУЧЕНИЕ СЛЕДУЮЩЕЙ ПЯТНИЦЫ ===
+        function getNextFriday(fromDate = new Date()) {
+            const date = new Date(fromDate);
+            const day = date.getDay();
+            // 5 = пятница (0 воскресенье, 1 понедельник, ..., 5 пятница, 6 суббота)
+            const daysToFriday = (5 - day + 7) % 7;
+            date.setDate(date.getDate() + (daysToFriday === 0 ? 7 : daysToFriday));
+            return date;
+        }
+
+        // === ПОЛУЧЕНИЕ ПРЕДЫДУЩЕЙ ПЯТНИЦЫ ===
+        function getPreviousFriday(fromDate) {
+            const date = new Date(fromDate);
+            const day = date.getDay();
+            const daysToPreviousFriday = (day - 5 + 7) % 7;
+            date.setDate(date.getDate() - (daysToPreviousFriday === 0 ? 7 : daysToPreviousFriday));
+            return date;
+        }
+
+        // === РАСЧЕТ ДЕДЛАЙНА ДЛЯ СЛЕДУЮЩЕГО ТРЕКА ===
+        function calculateNextTrackDeadline(lastReleaseDate) {
+            if (!lastReleaseDate) return null;
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Последний релиз (пятница)
+            const lastFriday = new Date(lastReleaseDate);
+            lastFriday.setHours(0, 0, 0, 0);
+            
+            // Следующая пятница после последнего релиза
+            const nextFriday = getNextFriday(new Date(lastFriday.getTime() + 24 * 60 * 60 * 1000));
+            
+            // Чтобы уложиться в запас 2.5 недели, трек нужно сдать за 17.5 дней до следующего релиза
+            // Дедлайн = следующая пятница - 17.5 дней
+            const deadlineTimestamp = nextFriday.getTime() - (BUFFER_DAYS * 24 * 60 * 60 * 1000);
+            const deadlineForNewTrack = new Date(deadlineTimestamp);
+            deadlineForNewTrack.setHours(0, 0, 0, 0);
+            
+            // Сколько дней осталось до дедлайна (с округлением до 0.5)
+            const msLeft = deadlineForNewTrack - today;
+            const daysLeft = Math.round((msLeft / (1000 * 60 * 60 * 24)) * 2) / 2; // округление до 0.5
+            
+            return {
+                lastReleaseDate: lastFriday,
+                nextReleaseDate: nextFriday,
+                deadlineForNewTrack: deadlineForNewTrack,
+                daysLeft: daysLeft,
+                nextFriday: getNextFriday(today) // ближайшая пятница для подсказки
+            };
+        }
+
         // === ЗАГРУЗКА ВСЕХ ПРОЕКТОВ ===
         async function loadAllProjects() {
             // Получаем все проекты
@@ -388,46 +446,6 @@
                 const card = createProjectCard(project, releases || []);
                 grid.appendChild(card);
             }
-        }
-
-        // === РАСЧЕТ ДЕДЛАЙНА ДЛЯ СЛЕДУЮЩЕГО ТРЕКА ===
-        function calculateNextTrackDeadline(lastReleaseDate) {
-            if (!lastReleaseDate) return null;
-            
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            const lastRelease = new Date(lastReleaseDate);
-            lastRelease.setHours(0, 0, 0, 0);
-            
-            // Следующий релиз должен быть через 2.5 недели (18 дней) после последнего
-            const nextReleaseDate = new Date(lastRelease);
-            nextReleaseDate.setDate(nextReleaseDate.getDate() + 18);
-            
-            // Чтобы уложиться в запас 2.5 недели, трек нужно сдать за 18 дней до следующего релиза
-            // То есть дедлайн для нового трека = следующий релиз - 18 дней
-            const deadlineForNewTrack = new Date(nextReleaseDate);
-            deadlineForNewTrack.setDate(deadlineForNewTrack.getDate() - 18);
-            
-            // Сколько дней осталось до дедлайна
-            const daysLeft = Math.ceil((deadlineForNewTrack - today) / (1000 * 60 * 60 * 24));
-            
-            return {
-                lastReleaseDate: lastRelease,
-                nextReleaseDate: nextReleaseDate,
-                deadlineForNewTrack: deadlineForNewTrack,
-                daysLeft: daysLeft,
-                nextFriday: getNextFriday() // Для подсказки
-            };
-        }
-
-        // === ПОЛУЧЕНИЕ СЛЕДУЮЩЕЙ ПЯТНИЦЫ ===
-        function getNextFriday() {
-            const date = new Date();
-            const day = date.getDay();
-            const daysToFriday = (5 - day + 7) % 7;
-            date.setDate(date.getDate() + (daysToFriday === 0 ? 7 : daysToFriday));
-            return date;
         }
 
         // === СОЗДАНИЕ КАРТОЧКИ ПРОЕКТА ===
@@ -455,7 +473,7 @@
                         <div class="last-release-title">📀 Последний релиз:</div>
                         <div class="last-release-item">
                             <span>${escapeHtml(lastRelease.track_name)}</span>
-                            <span style="font-weight: bold;">${formatDate(lastRelease.release_date)}</span>
+                            <span style="font-weight: bold;">${formatDate(lastRelease.release_date)} (пятница)</span>
                         </div>
                     </div>
                 `;
@@ -493,19 +511,22 @@
                     signalMessage = `Еще ${deadlineInfo.daysLeft} дней в запасе`;
                 }
                 
-                const nextFriday = formatDate(deadlineInfo.nextFriday);
+                // Форматирование дней с половинками
+                const daysDisplay = deadlineInfo.daysLeft % 1 === 0 ? 
+                    deadlineInfo.daysLeft : 
+                    deadlineInfo.daysLeft.toFixed(1).replace('.', '.');
                 
                 signalHtml = `
                     <div class="next-track-signal ${signalClass}">
                         <div class="signal-title">${signalEmoji} ${signalText}</div>
                         <div class="signal-deadline">
-                            ${deadlineInfo.daysLeft < 0 ? '🔥 Дедлайн прошел!' : `Осталось: ${deadlineInfo.daysLeft} ${getDaysWord(deadlineInfo.daysLeft)}`}
+                            ${deadlineInfo.daysLeft < 0 ? '🔥 Дедлайн прошел!' : `Осталось: ${daysDisplay} ${getDaysWord(deadlineInfo.daysLeft)}`}
                         </div>
                         <div class="signal-info">
-                            <div>📅 Нужно сдать до: <strong>${formatDate(deadlineInfo.deadlineForNewTrack)}</strong></div>
-                            <div>🎯 Следующий релиз: ${formatDate(deadlineInfo.nextReleaseDate)}</div>
+                            <div class="signal-highlight">📅 Нужно сдать до: <strong>${formatDate(deadlineInfo.deadlineForNewTrack)}</strong></div>
+                            <div>🎯 Следующий релиз: ${formatDate(deadlineInfo.nextReleaseDate)} (пятница)</div>
                             <div style="margin-top: 8px; color: #666;">
-                                <small>Рекомендуется сдать в пятницу: ${nextFriday}</small>
+                                <small>Рекомендуемая пятница для сдачи: ${formatDate(deadlineInfo.nextFriday)}</small>
                             </div>
                             ${deadlineInfo.daysLeft < 0 ? `
                                 <div style="margin-top: 8px; color: #721c24;">
@@ -524,7 +545,7 @@
                     <div class="next-track-signal signal-green">
                         <div class="signal-title">✅ Нет релизов</div>
                         <div class="signal-info">
-                            Добавьте первый релиз, чтобы начать отсчет
+                            Добавьте первый релиз (в пятницу), чтобы начать отсчет
                         </div>
                     </div>
                 `;
@@ -561,8 +582,9 @@
         }
 
         function getDaysWord(days) {
-            if (days % 10 === 1 && days % 100 !== 11) return 'день';
-            if (days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 10 || days % 100 >= 20)) return 'дня';
+            const absDays = Math.abs(days);
+            if (absDays % 10 === 1 && absDays % 100 !== 11) return 'день';
+            if (absDays % 10 >= 2 && absDays % 10 <= 4 && (absDays % 100 < 10 || absDays % 100 >= 20)) return 'дня';
             return 'дней';
         }
 
@@ -612,6 +634,13 @@
             
             if (!track || !date) {
                 alert('Заполните все поля');
+                return;
+            }
+            
+            // Проверяем, что дата - пятница
+            const releaseDate = new Date(date);
+            if (releaseDate.getDay() !== 5) {
+                alert('Дата релиза должна быть пятницей!');
                 return;
             }
             
