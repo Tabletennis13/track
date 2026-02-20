@@ -49,34 +49,12 @@
             color: #333;
         }
         
-        input, select {
+        input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
             font-size: 16px;
-        }
-        
-        select[multiple] {
-            height: 100px;
-        }
-        
-        .checkbox-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 5px;
-        }
-        
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .checkbox-item input[type="checkbox"] {
-            width: auto;
-            margin-right: 5px;
         }
         
         button {
@@ -137,22 +115,7 @@
         .project-header h2 {
             color: #333;
             font-size: 20px;
-            margin-bottom: 5px;
-        }
-        
-        .release-days {
-            font-size: 13px;
-            color: #666;
-            margin-top: 5px;
-        }
-        
-        .release-days span {
-            display: inline-block;
-            background: #e9ecef;
-            padding: 3px 8px;
-            border-radius: 12px;
-            margin-right: 5px;
-            margin-bottom: 5px;
+            margin-bottom: 10px;
         }
         
         /* Информация о последнем релизе */
@@ -270,8 +233,6 @@
             border-radius: 10px;
             max-width: 500px;
             width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
         }
         
         .close {
@@ -334,32 +295,6 @@
                 <label>URL картинки:</label>
                 <input type="url" id="projectImage" placeholder="https://example.com/image.jpg">
             </div>
-            <div class="form-group">
-                <label>Дни релизов:</label>
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="dayMon" value="1"> Пн
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="dayTue" value="2"> Вт
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="dayWed" value="3"> Ср
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="dayThu" value="4"> Чт
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="dayFri" value="5"> Пт
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="daySat" value="6"> Сб
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="daySun" value="0"> Вс
-                    </div>
-                </div>
-            </div>
             <button onclick="addProject()">Добавить проект</button>
         </div>
         
@@ -380,7 +315,7 @@
                 <input type="text" id="trackName" placeholder="Введите название трека">
             </div>
             <div class="form-group">
-                <label>Дата релиза:</label>
+                <label>Дата релиза (пятница):</label>
                 <input type="date" id="releaseDate">
             </div>
             <button onclick="addRelease()">Добавить релиз</button>
@@ -402,10 +337,6 @@
         let selectedProjectId = null;
         const BUFFER_DAYS = 17.5; // 2.5 недели
 
-        // === ДНИ НЕДЕЛИ ===
-        const DAYS_OF_WEEK = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-        const DAYS_FULL = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-
         // === ЗАПУСК ПРИ ЗАГРУЗКЕ ===
         document.addEventListener('DOMContentLoaded', function() {
             startApp();
@@ -426,80 +357,70 @@
             
             // Если проектов нет, создаем
             if (!projects || projects.length === 0) {
-                // Placebo Beats - вторник и пятница
                 await supabaseClient
                     .from('projects')
                     .insert([
                         { 
                             name: 'Placebo Beats', 
-                            image_url: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Placebo+Beats',
-                            release_days: [2, 5] // Вторник (2) и Пятница (5)
+                            image_url: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Placebo+Beats' 
                         },
                         { 
                             name: 'PLENUM', 
-                            image_url: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=PLENUM',
-                            release_days: [5] // Только пятница
+                            image_url: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=PLENUM' 
                         }
                     ]);
             }
         }
 
-        // === ПОЛУЧЕНИЕ СЛЕДУЮЩЕГО ДНЯ РЕЛИЗА ===
-        function getNextReleaseDate(fromDate, releaseDays) {
-            if (!releaseDays || releaseDays.length === 0) return null;
-            
+        // === ПОЛУЧЕНИЕ СЛЕДУЮЩЕЙ ПЯТНИЦЫ ===
+        function getNextFriday(fromDate = new Date()) {
             const date = new Date(fromDate);
-            date.setHours(0, 0, 0, 0);
-            
-            // Ищем ближайший день релиза
-            for (let i = 1; i <= 14; i++) { // Ищем в ближайшие 14 дней
-                const checkDate = new Date(date);
-                checkDate.setDate(date.getDate() + i);
-                const dayOfWeek = checkDate.getDay();
-                
-                if (releaseDays.includes(dayOfWeek)) {
-                    return checkDate;
-                }
-            }
-            
-            return null;
+            const day = date.getDay();
+            // 5 = пятница (0 воскресенье, 1 понедельник, ..., 5 пятница, 6 суббота)
+            const daysToFriday = (5 - day + 7) % 7;
+            date.setDate(date.getDate() + (daysToFriday === 0 ? 7 : daysToFriday));
+            return date;
+        }
+
+        // === ПОЛУЧЕНИЕ ПРЕДЫДУЩЕЙ ПЯТНИЦЫ ===
+        function getPreviousFriday(fromDate) {
+            const date = new Date(fromDate);
+            const day = date.getDay();
+            const daysToPreviousFriday = (day - 5 + 7) % 7;
+            date.setDate(date.getDate() - (daysToPreviousFriday === 0 ? 7 : daysToPreviousFriday));
+            return date;
         }
 
         // === РАСЧЕТ ДЕДЛАЙНА ДЛЯ СЛЕДУЮЩЕГО ТРЕКА ===
-        function calculateNextTrackDeadline(lastReleaseDate, releaseDays) {
-            if (!lastReleaseDate || !releaseDays || releaseDays.length === 0) return null;
+        function calculateNextTrackDeadline(lastReleaseDate) {
+            if (!lastReleaseDate) return null;
             
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            // Последний релиз
-            const lastRelease = new Date(lastReleaseDate);
-            lastRelease.setHours(0, 0, 0, 0);
+            // Последний релиз (пятница)
+            const lastFriday = new Date(lastReleaseDate);
+            lastFriday.setHours(0, 0, 0, 0);
             
-            // Следующий день релиза после последнего
-            const nextReleaseDate = getNextReleaseDate(lastRelease, releaseDays);
+            // Следующая пятница после последнего релиза
+            const nextFriday = getNextFriday(new Date(lastFriday.getTime() + 24 * 60 * 60 * 1000));
             
-            if (!nextReleaseDate) return null;
-            
-            // Дедлайн = следующий релиз - 17.5 дней
-            const deadlineTimestamp = nextReleaseDate.getTime() - (BUFFER_DAYS * 24 * 60 * 60 * 1000);
+            // Чтобы уложиться в запас 2.5 недели, трек нужно сдать за 17.5 дней до следующего релиза
+            // Дедлайн = следующая пятница - 17.5 дней
+            const deadlineTimestamp = nextFriday.getTime() - (BUFFER_DAYS * 24 * 60 * 60 * 1000);
             const deadlineForNewTrack = new Date(deadlineTimestamp);
             deadlineForNewTrack.setHours(0, 0, 0, 0);
             
-            // Сколько дней осталось до дедлайна
+            // Сколько дней осталось до дедлайна (с округлением до 0.5)
             const msLeft = deadlineForNewTrack - today;
-            const daysLeft = Math.round((msLeft / (1000 * 60 * 60 * 24)) * 2) / 2;
-            
-            // Ближайший день релиза для подсказки
-            const nextFriday = getNextReleaseDate(today, releaseDays);
+            const daysLeft = Math.round((msLeft / (1000 * 60 * 60 * 24)) * 2) / 2; // округление до 0.5
             
             return {
-                lastReleaseDate: lastRelease,
-                nextReleaseDate: nextReleaseDate,
+                lastReleaseDate: lastFriday,
+                nextReleaseDate: nextFriday,
                 deadlineForNewTrack: deadlineForNewTrack,
                 daysLeft: daysLeft,
-                nextReleaseDay: nextFriday,
-                releaseDays: releaseDays
+                nextFriday: getNextFriday(today) // ближайшая пятница для подсказки
             };
         }
 
@@ -520,7 +441,7 @@
                     .from('releases')
                     .select('*')
                     .eq('project_id', project.id)
-                    .order('release_date', { ascending: false });
+                    .order('release_date', { ascending: false }); // Сортировка по убыванию (новые сверху)
                 
                 const card = createProjectCard(project, releases || []);
                 grid.appendChild(card);
@@ -538,37 +459,21 @@
                 imageHtml = `<img src="${project.image_url}" class="project-image">`;
             }
             
-            // Дни релизов
-            let releaseDaysHtml = '';
-            if (project.release_days && project.release_days.length > 0) {
-                const days = project.release_days.map(day => DAYS_OF_WEEK[day]).join(', ');
-                releaseDaysHtml = `
-                    <div class="release-days">
-                        <span>📅 Релизы: ${days}</span>
-                    </div>
-                `;
-            }
-            
-            // Получаем последний релиз
+            // Получаем последний релиз (самый новый)
             const lastRelease = releases.length > 0 ? releases[0] : null;
             
             // Рассчитываем дедлайн для следующего трека
-            const deadlineInfo = lastRelease ? 
-                calculateNextTrackDeadline(lastRelease.release_date, project.release_days) : 
-                null;
+            const deadlineInfo = lastRelease ? calculateNextTrackDeadline(lastRelease.release_date) : null;
             
             // Формируем блок с последним релизом
             let lastReleaseHtml = '';
             if (lastRelease) {
-                const releaseDate = new Date(lastRelease.release_date);
-                const dayName = DAYS_FULL[releaseDate.getDay()];
-                
                 lastReleaseHtml = `
                     <div class="last-release">
                         <div class="last-release-title">📀 Последний релиз:</div>
                         <div class="last-release-item">
                             <span>${escapeHtml(lastRelease.track_name)}</span>
-                            <span style="font-weight: bold;">${formatDate(lastRelease.release_date)} (${dayName})</span>
+                            <span style="font-weight: bold;">${formatDate(lastRelease.release_date)} (пятница)</span>
                         </div>
                     </div>
                 `;
@@ -577,39 +482,39 @@
             // Формируем сигнал для следующего трека
             let signalHtml = '';
             if (deadlineInfo) {
-                const nextReleaseDayName = DAYS_FULL[deadlineInfo.nextReleaseDate.getDay()];
-                const deadlineDayName = DAYS_FULL[deadlineInfo.deadlineForNewTrack.getDay()];
-                
                 let signalClass = 'signal-green';
                 let signalEmoji = '✅';
                 let signalText = 'Всё хорошо';
+                let signalMessage = '';
                 
                 if (deadlineInfo.daysLeft < 0) {
                     signalClass = 'signal-red';
                     signalEmoji = '🔥';
                     signalText = 'ПРОСРОЧЕНО!';
+                    signalMessage = 'Нужно срочно сдавать трек!';
                 } else if (deadlineInfo.daysLeft <= 3) {
                     signalClass = 'signal-red';
                     signalEmoji = '⚠️';
                     signalText = 'КРИТИЧНО!';
+                    signalMessage = `Осталось всего ${deadlineInfo.daysLeft} дня!`;
                 } else if (deadlineInfo.daysLeft <= 7) {
                     signalClass = 'signal-orange';
                     signalEmoji = '⚠️';
                     signalText = 'Срочно!';
+                    signalMessage = `Осталось ${deadlineInfo.daysLeft} дней`;
                 } else if (deadlineInfo.daysLeft <= 12) {
                     signalClass = 'signal-yellow';
                     signalEmoji = '📝';
                     signalText = 'Пора делать';
+                    signalMessage = `Осталось ${deadlineInfo.daysLeft} дней`;
+                } else {
+                    signalMessage = `Еще ${deadlineInfo.daysLeft} дней в запасе`;
                 }
                 
+                // Форматирование дней с половинками
                 const daysDisplay = deadlineInfo.daysLeft % 1 === 0 ? 
                     deadlineInfo.daysLeft : 
                     deadlineInfo.daysLeft.toFixed(1).replace('.', '.');
-                
-                // Ближайший день релиза для подсказки
-                const nextReleaseSuggestion = deadlineInfo.nextReleaseDay ? 
-                    `${formatDate(deadlineInfo.nextReleaseDay)} (${DAYS_FULL[deadlineInfo.nextReleaseDay.getDay()]})` : 
-                    'не определен';
                 
                 signalHtml = `
                     <div class="next-track-signal ${signalClass}">
@@ -618,20 +523,20 @@
                             ${deadlineInfo.daysLeft < 0 ? '🔥 Дедлайн прошел!' : `Осталось: ${daysDisplay} ${getDaysWord(deadlineInfo.daysLeft)}`}
                         </div>
                         <div class="signal-info">
-                            <div class="signal-highlight">📅 Нужно сдать до: <strong>${formatDate(deadlineInfo.deadlineForNewTrack)} (${deadlineDayName})</strong></div>
-                            <div>🎯 Следующий релиз: ${formatDate(deadlineInfo.nextReleaseDate)} (${nextReleaseDayName})</div>
+                            <div class="signal-highlight">📅 Нужно сдать до: <strong>${formatDate(deadlineInfo.deadlineForNewTrack)}</strong></div>
+                            <div>🎯 Следующий релиз: ${formatDate(deadlineInfo.nextReleaseDate)} (пятница)</div>
                             <div style="margin-top: 8px; color: #666;">
-                                <small>Ближайший день релиза: ${nextReleaseSuggestion}</small>
+                                <small>Рекомендуемая пятница для сдачи: ${formatDate(deadlineInfo.nextFriday)}</small>
                             </div>
-                        </div>
-                    </div>
-                `;
-            } else if (lastRelease) {
-                signalHtml = `
-                    <div class="next-track-signal signal-yellow">
-                        <div class="signal-title">⚠️ Не указаны дни релизов</div>
-                        <div class="signal-info">
-                            Укажите дни релизов для проекта в настройках
+                            ${deadlineInfo.daysLeft < 0 ? `
+                                <div style="margin-top: 8px; color: #721c24;">
+                                    <small>Чтобы уложиться в запас 2.5 недели, трек нужно было сдать до ${formatDate(deadlineInfo.deadlineForNewTrack)}</small>
+                                </div>
+                            ` : deadlineInfo.daysLeft <= 3 ? `
+                                <div style="margin-top: 8px; color: #721c24;">
+                                    <small>Очень мало времени! Работай в усиленном режиме</small>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -640,7 +545,7 @@
                     <div class="next-track-signal signal-green">
                         <div class="signal-title">✅ Нет релизов</div>
                         <div class="signal-info">
-                            Добавьте первый релиз, чтобы начать отсчет
+                            Добавьте первый релиз (в пятницу), чтобы начать отсчет
                         </div>
                     </div>
                 `;
@@ -651,7 +556,6 @@
                 ${imageHtml}
                 <div class="project-header">
                     <h2>${escapeHtml(project.name)}</h2>
-                    ${releaseDaysHtml}
                     ${lastReleaseHtml}
                 </div>
                 <div style="padding: 0 15px;">
@@ -695,7 +599,9 @@
             selectedProjectId = projectId;
             document.getElementById('releaseModal').style.display = 'flex';
             document.getElementById('trackName').value = '';
-            document.getElementById('releaseDate').value = '';
+            
+            const nextFriday = getNextFriday();
+            document.getElementById('releaseDate').value = nextFriday.toISOString().split('T')[0];
         };
 
         window.closeModal = function() {
@@ -707,38 +613,17 @@
             const name = document.getElementById('projectName').value.trim();
             const image = document.getElementById('projectImage').value.trim();
             
-            // Собираем выбранные дни
-            const releaseDays = [];
-            if (document.getElementById('dayMon').checked) releaseDays.push(1);
-            if (document.getElementById('dayTue').checked) releaseDays.push(2);
-            if (document.getElementById('dayWed').checked) releaseDays.push(3);
-            if (document.getElementById('dayThu').checked) releaseDays.push(4);
-            if (document.getElementById('dayFri').checked) releaseDays.push(5);
-            if (document.getElementById('daySat').checked) releaseDays.push(6);
-            if (document.getElementById('daySun').checked) releaseDays.push(0);
-            
             if (!name) {
                 alert('Введите название проекта');
                 return;
             }
             
-            if (releaseDays.length === 0) {
-                alert('Выберите хотя бы один день релиза');
-                return;
-            }
-            
             await supabaseClient
                 .from('projects')
-                .insert([{ 
-                    name, 
-                    image_url: image || null,
-                    release_days: releaseDays
-                }]);
+                .insert([{ name, image_url: image || null }]);
             
             document.getElementById('projectName').value = '';
             document.getElementById('projectImage').value = '';
-            // Сбрасываем чекбоксы
-            document.querySelectorAll('#projectForm input[type="checkbox"]').forEach(cb => cb.checked = false);
             
             await loadAllProjects();
         };
@@ -749,6 +634,13 @@
             
             if (!track || !date) {
                 alert('Заполните все поля');
+                return;
+            }
+            
+            // Проверяем, что дата - пятница
+            const releaseDate = new Date(date);
+            if (releaseDate.getDay() !== 5) {
+                alert('Дата релиза должна быть пятницей!');
                 return;
             }
             
