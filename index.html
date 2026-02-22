@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Release Tracker - VHQ Music</title>
     <style>
-        /* --- СТИЛИ (полностью без изменений) --- */
+        /* --- СТИЛИ (без изменений) --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
@@ -326,7 +326,7 @@
             <h2 style="margin-bottom: 15px;">➕ Добавить новый проект</h2>
             <div class="form-group">
                 <label>Название проекта:</label>
-                <input type="text" id="projectName" placeholder="Например: Placebo Beats">
+                <input type="text" id="projectName" placeholder="Например: Placcebo Beats">
             </div>
             <div class="form-group">
                 <label>URL картинки:</label>
@@ -380,12 +380,12 @@
         // === НАСТРОЙКИ ДЛЯ ИМПОРТА ИЗ GOOGLE SHEETS ===
         const GOOGLE_SHEETS_CONFIG = {
             sheetId: '11gCU7DVGgweld9A-jeo2F2rBh13MVxyQSz1DGb3EVYs',
-            sheetName: 'Ответы на форму (1)', // ИСПРАВЛЕНО: правильное название листа
+            sheetName: 'Ответы на форму (1)',
             apiKey: 'AIzaSyB-QjJoeojwGFrzgPOnceY8HfeoB0-7Y_w',
-            projectNameColumnIndex: 2, // Колонка C (индекс 2)
-            releaseDateColumnIndex: 9, // Колонка J (индекс 9)
+            projectNameColumnIndex: 2, // Колонка C
+            releaseDateColumnIndex: 9, // Колонка J
             allowedProjects: [
-                'Placebo Beats',
+                'Placcebo Beats',  // Исправлено: две "c"
                 'PLENUM',
                 'Мир детства',
                 'Звёздная ночь',
@@ -407,7 +407,6 @@
         // === ЗАПУСК ПРИ ЗАГРУЗКЕ ===
         document.addEventListener('DOMContentLoaded', function() {
             startApp();
-            // Добавляем обработчик на кнопку импорта
             document.getElementById('importFromGoogleBtn').addEventListener('click', importOnlyNewFromSheets);
         });
 
@@ -422,7 +421,7 @@
             const { data: projects } = await supabaseClient.from('projects').select('*');
             if (!projects || projects.length === 0) {
                 await supabaseClient.from('projects').insert([
-                    { name: 'Placebo Beats', image_url: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Placebo+Beats', release_days: [2, 5] },
+                    { name: 'Placcebo Beats', image_url: 'https://via.placeholder.com/300x200/667eea/ffffff?text=Placcebo+Beats', release_days: [2, 5] },
                     { name: 'PLENUM', image_url: 'https://via.placeholder.com/300x200/764ba2/ffffff?text=PLENUM', release_days: [5] },
                     { name: 'Мир детства', image_url: 'https://via.placeholder.com/300x200/28a745/ffffff?text=Мир+детства', release_days: [5] },
                     { name: 'Звёздная ночь', image_url: 'https://via.placeholder.com/300x200/ffc107/000000?text=Звёздная+ночь', release_days: [5] },
@@ -566,35 +565,36 @@
                 statusEl.innerHTML = '⏳ Загрузка данных из Google Sheets...';
                 importBtn.disabled = true;
 
-                // 1. Загружаем данные из таблицы (колонки A:J)
+                // Загружаем данные из таблицы
                 const range = encodeURIComponent(`${GOOGLE_SHEETS_CONFIG.sheetName}!A2:J1000`);
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.sheetId}/values/${range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
                 
-                console.log('Загружаем URL:', url); // Для отладки
-                
                 const response = await fetch(url);
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Ответ ошибки:', errorText);
-                    throw new Error(`Ошибка загрузки: ${response.status} - ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
                 
                 const data = await response.json();
                 const googleRows = data.values || [];
-                statusEl.innerHTML = `⏳ Найдено ${googleRows.length} записей. Фильтрация...`;
+                
+                // Фильтруем пустые строки
+                const validRows = googleRows.filter(row => row.length > Math.max(GOOGLE_SHEETS_CONFIG.projectNameColumnIndex, GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex));
+                
+                statusEl.innerHTML = `⏳ Найдено ${validRows.length} записей. Фильтрация...`;
 
-                // 2. Получаем ID разрешенных проектов из базы
+                // Получаем ID проектов из базы
                 const { data: projects, error: projectsError } = await supabaseClient.from('projects').select('id, name');
                 if (projectsError) throw projectsError;
                 
                 const projectMap = new Map();
                 projects?.forEach(p => {
-                    if (GOOGLE_SHEETS_CONFIG.allowedProjects.includes(p.name)) projectMap.set(p.name, p.id);
+                    if (GOOGLE_SHEETS_CONFIG.allowedProjects.includes(p.name)) {
+                        projectMap.set(p.name, p.id);
+                        console.log(`Проект найден в БД: ${p.name} -> ID: ${p.id}`);
+                    }
                 });
                 
                 if (projectMap.size === 0) throw new Error('Ни один из разрешенных проектов не найден в базе');
 
-                // 3. Получаем все существующие релизы для этих проектов
+                // Получаем существующие релизы
                 const projectIds = Array.from(projectMap.values());
                 const { data: existingReleases, error: releasesError } = await supabaseClient.from('releases').select('track_name, release_date, project_id').in('project_id', projectIds);
                 if (releasesError) throw releasesError;
@@ -605,17 +605,11 @@
                     existingTracks.add(`${r.project_id}_${r.track_name}_${normalizedDate}`);
                 });
 
-                // 4. Парсим строки из Google Sheets
+                // Парсим строки
                 const newReleases = [];
                 const skipped = { noProject: 0, duplicate: 0, invalid: 0, noSeparator: 0 };
 
-                for (const row of googleRows) {
-                    // Проверяем, что в строке достаточно колонок
-                    if (row.length <= Math.max(GOOGLE_SHEETS_CONFIG.projectNameColumnIndex, GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex)) {
-                        skipped.invalid++;
-                        continue;
-                    }
-
+                for (const row of validRows) {
                     const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
                     const dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
 
@@ -639,7 +633,7 @@
                         continue;
                     }
 
-                    // Проверка, разрешен ли проект
+                    // Проверка разрешенного проекта
                     if (!GOOGLE_SHEETS_CONFIG.allowedProjects.includes(projectNameFromSheet)) {
                         skipped.noProject++;
                         continue;
@@ -678,7 +672,7 @@
                     });
                 }
 
-                // 5. Показываем результат
+                // Показываем результат
                 if (newReleases.length === 0) {
                     statusEl.innerHTML = `ℹ️ Новых треков не найдено.<br>
                         📊 Пропущено (не наш проект): ${skipped.noProject}<br>
@@ -692,7 +686,7 @@
                     return;
                 }
 
-                // Группируем для красивого отображения
+                // Группируем для отображения
                 const newByProject = {};
                 newReleases.forEach(r => {
                     const projectName = Array.from(projectMap.entries()).find(([_, id]) => id === r.project_id)?.[0];
@@ -729,7 +723,7 @@
             }
         }
 
-        // Функция подтверждения импорта
+        // Подтверждение импорта
         window.confirmImport = async function() {
             const statusEl = document.getElementById('importStatus');
             const importBtn = document.getElementById('importFromGoogleBtn');
@@ -768,7 +762,7 @@
             }
         };
 
-        // Функция отмены импорта
+        // Отмена импорта
         window.cancelImport = function() {
             const statusEl = document.getElementById('importStatus');
             const importBtn = document.getElementById('importFromGoogleBtn');
