@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>Release Tracker - VHQ Music</title>
     <style>
-        /* --- СТИЛИ --- */
+        /* --- СТИЛИ (без изменений) --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
@@ -17,7 +17,6 @@
             margin: 0 auto;
         }
         
-        /* СТАТУС АВТООБНОВЛЕНИЯ (ВНИЗУ) */
         .auto-update-status {
             background: #e3f2fd;
             padding: 8px 12px;
@@ -92,7 +91,6 @@
             50% { transform: scale(1.1); }
         }
         
-        /* СЕТКА ПРОЕКТОВ */
         .projects-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -120,7 +118,6 @@
             }
         }
         
-        /* КАРТОЧКА ПРОЕКТА */
         .project-card {
             background: white;
             border-radius: 8px;
@@ -264,7 +261,6 @@
             text-align: center;
         }
         
-        /* ФОРМА ДОБАВЛЕНИЯ */
         .form-section {
             background: white;
             padding: 15px;
@@ -400,13 +396,10 @@
 </head>
 <body>
     <div class="container">
-        <!-- Список проектов (ПЕРВЫМ ДЕЛОМ) -->
         <div class="projects-grid" id="projectsGrid"></div>
 
-        <!-- Разделитель -->
         <div class="section-divider">УПРАВЛЕНИЕ</div>
 
-        <!-- Форма добавления нового проекта -->
         <div class="form-section" id="projectForm">
             <h2>➕ Добавить проект</h2>
             <div class="form-group">
@@ -432,7 +425,6 @@
             <button onclick="addProject()">Добавить</button>
         </div>
 
-        <!-- СТАТУС АВТООБНОВЛЕНИЯ (В САМОМ НИЗУ) -->
         <div class="auto-update-status" id="autoUpdateStatus">
             <div class="status-indicator">
                 <div class="pulse-dot"></div>
@@ -447,10 +439,8 @@
         </div>
     </div>
 
-    <!-- Мобильная кнопка -->
     <button class="mobile-add-btn" onclick="toggleForm()">➕</button>
 
-    <!-- Модальное окно -->
     <div class="modal" id="releaseModal">
         <div class="modal-content">
             <span class="close" onclick="closeModal()">&times;</span>
@@ -467,16 +457,13 @@
         </div>
     </div>
 
-    <!-- Подключаем Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // === НАСТРОЙКИ SUPABASE ===
         const SUPABASE_URL = 'https://bqycjfcjtdawyrysgrbw.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeWNqZmNqdGRhd3lyeXNncmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MDE5NzAsImV4cCI6MjA4MjE3Nzk3MH0.LEOUMFAd1cz_1e4uawJcaZLPCMqAQHEWM52Oy7fDjsE';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // === НАСТРОЙКИ ДЛЯ ИМПОРТА ===
         const GOOGLE_SHEETS_CONFIG = {
             sheetId: '11gCU7DVGgweld9A-jeo2F2rBh13MVxyQSz1DGb3EVYs',
             sheetName: 'Ответы на форму (1)',
@@ -494,21 +481,19 @@
                 'IVASHKOV',
                 'Гр. ОКРАИНА',
                 'LOGUNOVA',
-                'Nina Vey'
+                'Nina Vey',
+                'FLARIX'
             ]
         };
 
-        // === ПЕРЕМЕННЫЕ ===
         let selectedProjectId = null;
         const BUFFER_DAYS = 17.5;
         const DAYS_FULL = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
         
-        // === ПЕРЕМЕННЫЕ ДЛЯ АВТООБНОВЛЕНИЯ ===
         let autoUpdateTimer = null;
         let isChecking = false;
         let lastCheckTime = new Date();
 
-        // === ЗАПУСК ===
         document.addEventListener('DOMContentLoaded', function() {
             startApp();
             startAutoUpdate();
@@ -532,22 +517,15 @@
             try {
                 document.getElementById('autoUpdateStatus').classList.add('checking');
                 
-                console.log('%c🔍 ПРОВЕРКА НОВЫХ ТРЕКОВ...', 'background: #1976d2; color: white; padding: 2px 5px; border-radius: 3px;');
-                
-                // Загружаем данные из Google Sheets
                 const range = encodeURIComponent(`${GOOGLE_SHEETS_CONFIG.sheetName}!A2:J1000`);
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.sheetId}/values/${range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
                 
-                console.log('📡 Запрос к Google Sheets API...');
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
                 
                 const data = await response.json();
                 const googleRows = data.values || [];
                 
-                console.log(`📊 Загружено строк из Google Sheets: ${googleRows.length}`);
-                
-                // Фильтруем строки с данными
                 const validRows = googleRows.filter(row => 
                     row.length > GOOGLE_SHEETS_CONFIG.projectNameColumnIndex && 
                     row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex] && 
@@ -557,40 +535,15 @@
                     row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex].trim() !== ''
                 );
                 
-                console.log(`✅ Валидных строк (есть и название, и дата): ${validRows.length}`);
+                const { data: projects } = await supabaseClient.from('projects').select('id, name');
                 
-                // ВЫВОДИМ ВСЕ НАЗВАНИЯ ПРОЕКТОВ ИЗ ТАБЛИЦЫ
-                console.log('%c📝 ВСЕ ПРОЕКТЫ ИЗ ТАБЛИЦЫ:', 'font-weight: bold;');
-                validRows.forEach((row, index) => {
-                    const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
-                    const separatorIndex = fullTitle.indexOf(' - ');
-                    if (separatorIndex !== -1) {
-                        const projectName = fullTitle.substring(0, separatorIndex).trim();
-                        console.log(`   Строка ${index + 1}: "${projectName}"`);
-                    } else {
-                        console.log(`   Строка ${index + 1}: "${fullTitle}" (нет разделителя)`);
-                    }
-                });
-                
-                // Получаем проекты из базы данных
-                const { data: projects, error: projectsError } = await supabaseClient.from('projects').select('id, name');
-                if (projectsError) throw projectsError;
-                
-                console.log('%c📁 ПРОЕКТЫ В БАЗЕ ДАННЫХ:', 'font-weight: bold;');
-                projects?.forEach(p => {
-                    console.log(`   - ${p.name} (ID: ${p.id})`);
-                });
-                
-                // Создаем карту проектов
                 const projectMap = new Map();
                 projects?.forEach(p => {
                     projectMap.set(p.name, p.id);
                 });
                 
-                // Получаем существующие релизы
                 const projectIds = Array.from(projectMap.values());
-                const { data: existingReleases, error: releasesError } = await supabaseClient.from('releases').select('track_name, release_date, project_id').in('project_id', projectIds);
-                if (releasesError) throw releasesError;
+                const { data: existingReleases } = await supabaseClient.from('releases').select('track_name, release_date, project_id').in('project_id', projectIds);
                 
                 const existingTracks = new Set();
                 existingReleases?.forEach(r => {
@@ -598,188 +551,83 @@
                     existingTracks.add(`${r.project_id}_${r.track_name}_${normalizedDate}`);
                 });
                 
-                console.log(`💿 Существующих треков в базе: ${existingReleases?.length || 0}`);
-                
-                // Парсим строки
                 const newReleases = [];
-                const stats = {
-                    total: validRows.length,
-                    noSeparator: 0,
-                    invalidProject: 0,
-                    projectNotFound: 0,
-                    duplicate: 0,
-                    invalidDate: 0,
-                    success: 0
-                };
                 
                 for (const row of validRows) {
                     const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
                     const dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
                     
                     const separatorIndex = fullTitle.indexOf(' - ');
-                    if (separatorIndex === -1) {
-                        stats.noSeparator++;
-                        continue;
-                    }
+                    if (separatorIndex === -1) continue;
                     
                     const projectNameFromSheet = fullTitle.substring(0, separatorIndex).trim();
                     const trackName = fullTitle.substring(separatorIndex + 3).trim();
                     
-                    if (!projectNameFromSheet || !trackName) {
-                        stats.invalidProject++;
-                        continue;
-                    }
+                    if (!projectNameFromSheet || !trackName) continue;
                     
-                    // ПОДРОБНАЯ ОТЛАДКА ДЛЯ КАЖДОГО ПРОЕКТА
-                    console.log(`\n🔍 ПРОВЕРКА ПРОЕКТА: "${projectNameFromSheet}"`);
-                    console.log(`   Название трека: "${trackName}"`);
-                    console.log(`   Дата в таблице: "${dateStr}"`);
-                    
-                    // Проверяем, есть ли проект в разрешенном списке
-                    console.log('   Разрешенные проекты:');
-                    let isAllowed = false;
+                    // Проверяем, разрешен ли проект
                     let matchedProject = null;
-                    
                     for (const allowed of GOOGLE_SHEETS_CONFIG.allowedProjects) {
-                        const exactMatch = allowed.toLowerCase() === projectNameFromSheet.toLowerCase();
-                        console.log(`      "${allowed}": ${exactMatch ? '✅ ТОЧНОЕ СОВПАДЕНИЕ' : '❌ нет'}`);
-                        
-                        if (exactMatch) {
-                            isAllowed = true;
+                        if (allowed.toLowerCase() === projectNameFromSheet.toLowerCase()) {
                             matchedProject = allowed;
                             break;
                         }
                     }
                     
-                    // Если нет точного совпадения, пробуем частичное
-                    if (!isAllowed) {
-                        console.log('   🔄 Пробуем частичное совпадение:');
-                        for (const allowed of GOOGLE_SHEETS_CONFIG.allowedProjects) {
-                            if (allowed.toLowerCase().includes(projectNameFromSheet.toLowerCase()) || 
-                                projectNameFromSheet.toLowerCase().includes(allowed.toLowerCase())) {
-                                console.log(`      "${allowed}" -> ЧАСТИЧНОЕ СОВПАДЕНИЕ`);
-                                isAllowed = true;
-                                matchedProject = allowed;
-                                break;
-                            }
-                        }
-                    }
+                    if (!matchedProject) continue;
                     
-                    console.log(`   РЕЗУЛЬТАТ: ${isAllowed ? '✅ ПРОЕКТ РАЗРЕШЕН' : '❌ ПРОЕКТ НЕ В СПИСКЕ'} (совпал с "${matchedProject || 'нет'}")`);
-                    
-                    if (!isAllowed) {
-                        stats.projectNotFound++;
-                        continue;
-                    }
-                    
-                    // Находим ID проекта
-                    let projectId = null;
-                    for (const [dbName, dbId] of projectMap.entries()) {
-                        if (dbName.toLowerCase() === matchedProject.toLowerCase()) {
-                            projectId = dbId;
-                            console.log(`   ✅ Найден ID проекта: ${dbId} (${dbName})`);
-                            break;
-                        }
-                    }
-                    
-                    if (!projectId) {
-                        console.log(`   ❌ НЕ НАЙДЕН ID ПРОЕКТА В БАЗЕ!`);
-                        stats.projectNotFound++;
-                        continue;
-                    }
+                    const projectId = projectMap.get(matchedProject);
+                    if (!projectId) continue;
                     
                     // Нормализация даты
                     let normalizedDateStr;
                     try {
                         const cleanDateStr = dateStr.split(/[\s\t]/)[0].trim();
-                        console.log(`   Очищенная дата: "${cleanDateStr}"`);
-                        
                         const dateParts = cleanDateStr.split('.');
                         if (dateParts.length === 3) {
                             const year = dateParts[2];
                             const month = dateParts[1].padStart(2, '0');
                             const day = dateParts[0].padStart(2, '0');
                             normalizedDateStr = `${year}-${month}-${day}`;
-                            console.log(`   Нормализованная дата: ${normalizedDateStr}`);
                         } else {
-                            console.log(`   ❌ НЕВЕРНЫЙ ФОРМАТ ДАТЫ`);
-                            stats.invalidDate++;
                             continue;
                         }
                     } catch {
-                        console.log(`   ❌ ОШИБКА ПАРСИНГА ДАТЫ`);
-                        stats.invalidDate++;
                         continue;
                     }
                     
                     const trackKey = `${projectId}_${trackName}_${normalizedDateStr}`;
                     
-                    if (existingTracks.has(trackKey)) {
-                        console.log(`   🔁 ДУБЛИКАТ: трек уже существует`);
-                        stats.duplicate++;
-                        continue;
+                    if (!existingTracks.has(trackKey)) {
+                        newReleases.push({
+                            project_id: projectId,
+                            track_name: trackName,
+                            release_date: normalizedDateStr
+                        });
                     }
-                    
-                    console.log(`   ✅ НОВЫЙ ТРЕК! Будет добавлен`);
-                    
-                    newReleases.push({
-                        project_id: projectId,
-                        track_name: trackName,
-                        release_date: normalizedDateStr
-                    });
-                    
-                    stats.success++;
                 }
                 
-                // Выводим статистику
-                console.log('\n%c📊 СТАТИСТИКА ОБРАБОТКИ:', 'font-weight: bold;');
-                console.log(`   Всего строк: ${stats.total}`);
-                console.log(`   ❌ Нет разделителя " - ": ${stats.noSeparator}`);
-                console.log(`   ❌ Проект не в разрешенном списке: ${stats.projectNotFound}`);
-                console.log(`   ❌ Невалидная дата: ${stats.invalidDate}`);
-                console.log(`   🔁 Дубликаты: ${stats.duplicate}`);
-                console.log(`   ✅ Новые треки: ${stats.success}`);
-                
-                // Добавляем новые треки
                 if (newReleases.length > 0) {
-                    console.log(`%c➕ Добавляем ${newReleases.length} новых треков...`, 'background: #28a745; color: white; padding: 2px 5px; border-radius: 3px;');
-                    
                     for (const release of newReleases) {
-                        const { error } = await supabaseClient.from('releases').insert([release]);
-                        if (error) {
-                            console.error('   ❌ Ошибка добавления:', error);
-                        } else {
-                            console.log(`   ✅ Добавлен трек для проекта ${release.project_id}: ${release.track_name} (${release.release_date})`);
-                        }
-                        await new Promise(r => setTimeout(r, 100));
+                        await supabaseClient.from('releases').insert([release]);
                     }
-                    
                     await loadAllProjects();
-                    showNewTracksNotification(newReleases.length);
                     
-                    console.log('✅ Обновление страницы завершено');
-                } else {
-                    console.log('ℹ️ Новых треков не найдено');
+                    const badge = document.getElementById('newTracksBadge');
+                    badge.style.display = 'inline-block';
+                    badge.textContent = `🎵 +${newReleases.length}`;
+                    setTimeout(() => { badge.style.display = 'none'; }, 3000);
                 }
                 
                 lastCheckTime = new Date();
-                updateLastCheckTime();
                 
             } catch (error) {
-                console.error('❌ Ошибка в checkForNewTracks:', error);
+                console.error('Ошибка:', error);
             } finally {
                 isChecking = false;
                 document.getElementById('autoUpdateStatus').classList.remove('checking');
+                updateLastCheckTime();
             }
-        }
-
-        function showNewTracksNotification(count) {
-            const badge = document.getElementById('newTracksBadge');
-            badge.style.display = 'inline-block';
-            badge.textContent = `🎵 +${count}`;
-            setTimeout(() => {
-                badge.style.display = 'none';
-            }, 3000);
         }
 
         function updateLastCheckTime() {
@@ -804,15 +652,15 @@
                     { name: 'IVASHKOV', image_url: 'https://via.placeholder.com/300x150/fd7e14/ffffff?text=IV', release_days: [5] },
                     { name: 'Гр. ОКРАИНА', image_url: 'https://via.placeholder.com/300x150/20c997/ffffff?text=ГО', release_days: [5] },
                     { name: 'LOGUNOVA', image_url: 'https://via.placeholder.com/300x150/007bff/ffffff?text=LG', release_days: [5] },
-                    { name: 'Nina Vey', image_url: 'https://via.placeholder.com/300x150/dc3545/ffffff?text=NV', release_days: [5] }
+                    { name: 'Nina Vey', image_url: 'https://via.placeholder.com/300x150/dc3545/ffffff?text=NV', release_days: [5] },
+                    { name: 'FLARIX', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=FLARIX', release_days: [5] }
                 ]);
             }
         }
 
         function getLastReleaseForDay(releases, targetDay) {
             if (!releases || releases.length === 0) return null;
-            const dayReleases = releases.filter(r => new Date(r.release_date).getDay() === targetDay).sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
-            return dayReleases.length > 0 ? dayReleases[0] : null;
+            return releases.filter(r => new Date(r.release_date).getDay() === targetDay).sort((a, b) => new Date(b.release_date) - new Date(a.release_date))[0] || null;
         }
         
         function getNextReleaseDate(fromDate, targetDay) {
@@ -842,79 +690,52 @@
             const msLeft = deadlineForNewTrack - today;
             const daysLeft = Math.round((msLeft / (1000 * 60 * 60 * 24)) * 2) / 2;
             
-            // Определяем статус
-            let status = {
-                class: 'signal-green',
-                emoji: '✅',
-                text: 'OK',
-                daysLeft: daysLeft
-            };
+            let status = { class: 'signal-green', emoji: '✅', daysLeft: daysLeft };
             
             if (daysLeft < 0) {
-                status = { class: 'signal-red', emoji: '🔥', text: 'Просрочено', daysLeft: daysLeft };
+                status = { class: 'signal-red', emoji: '🔥', daysLeft: daysLeft };
             } else if (daysLeft <= 3) {
-                status = { class: 'signal-red', emoji: '⚠️', text: 'Критично', daysLeft: daysLeft };
+                status = { class: 'signal-red', emoji: '⚠️', daysLeft: daysLeft };
             } else if (daysLeft <= 7) {
-                status = { class: 'signal-orange', emoji: '⚠️', text: 'Срочно', daysLeft: daysLeft };
+                status = { class: 'signal-orange', emoji: '⚠️', daysLeft: daysLeft };
             } else if (daysLeft <= 12) {
-                status = { class: 'signal-yellow', emoji: '📝', text: 'Пора', daysLeft: daysLeft };
+                status = { class: 'signal-yellow', emoji: '📝', daysLeft: daysLeft };
             }
             
-            return {
-                dayName: DAYS_FULL[targetDay],
-                daysLeft: daysLeft,
-                status: status
-            };
+            return { dayName: DAYS_FULL[targetDay], daysLeft, status };
         }
 
         async function loadAllProjects() {
             const { data: projects } = await supabaseClient.from('projects').select('*');
-            
             if (!projects) return;
             
-            const fixedOrder = [
-                'Placcebo Beats',
-                'PLENUM',
-                'Мир детства',
-                'Звёздная ночь',
-                'Дом Медитации'
-            ];
-            
+            const fixedOrder = ['Placcebo Beats', 'PLENUM', 'Мир детства', 'Звёздная ночь', 'Дом Медитации'];
             const otherProjects = projects.filter(p => !fixedOrder.includes(p.name));
             
             const sortedOthers = await Promise.all(otherProjects.map(async (project) => {
                 const { data: releases } = await supabaseClient.from('releases').select('*').eq('project_id', project.id);
-                
                 let minDays = Infinity;
-                if (releases && releases.length > 0) {
-                    const releaseDays = project.release_days && project.release_days.length > 0 ? project.release_days : [5];
-                    
-                    releaseDays.forEach(day => {
-                        const lastRelease = getLastReleaseForDay(releases, day);
-                        if (lastRelease) {
-                            const deadlineInfo = calculateDeadlineForDay(lastRelease.release_date, day);
-                            if (deadlineInfo && deadlineInfo.daysLeft < minDays) {
-                                minDays = deadlineInfo.daysLeft;
-                            }
+                if (releases?.length) {
+                    const days = project.release_days?.length ? project.release_days : [5];
+                    days.forEach(day => {
+                        const last = getLastReleaseForDay(releases, day);
+                        if (last) {
+                            const info = calculateDeadlineForDay(last.release_date, day);
+                            if (info && info.daysLeft < minDays) minDays = info.daysLeft;
                         }
                     });
                 }
-                
                 return { project, minDays };
             }));
             
             sortedOthers.sort((a, b) => a.minDays - b.minDays);
             
             const finalProjects = [];
-            
             fixedOrder.forEach(name => {
-                const project = projects.find(p => p.name === name);
-                if (project) finalProjects.push(project);
+                const p = projects.find(p => p.name === name);
+                if (p) finalProjects.push(p);
             });
-            
-            sortedOthers.forEach(item => {
-                finalProjects.push(item.project);
-            });
+            sortedOthers.forEach(item => finalProjects.push(item.project));
             
             const grid = document.getElementById('projectsGrid');
             grid.innerHTML = '';
@@ -932,17 +753,17 @@
             let imageHtml = '<div class="project-image" style="background:#ddd;display:flex;align-items:center;justify-content:center;">📷</div>';
             if (project.image_url) imageHtml = `<img src="${project.image_url}" class="project-image">`;
 
-            let releaseDays = project.release_days && project.release_days.length > 0 ? project.release_days : [5];
+            let releaseDays = project.release_days?.length ? project.release_days : [5];
             let releaseDaysHtml = project.release_days ? `<div class="release-days"><span>${project.release_days.map(d => DAYS_FULL[d]).join(' ')}</span></div>` : '';
 
             let lastReleasesHtml = ''; 
             const lastReleasesByDay = [];
             releaseDays.forEach(day => { 
-                const lastRelease = getLastReleaseForDay(releases, day); 
-                if (lastRelease) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: lastRelease }); 
+                const last = getLastReleaseForDay(releases, day); 
+                if (last) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: last }); 
             });
             
-            if (lastReleasesByDay.length > 0) {
+            if (lastReleasesByDay.length) {
                 lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀</div>';
                 lastReleasesByDay.slice(0,2).forEach(item => { 
                     lastReleasesHtml += `<div class="last-release-item">
@@ -954,43 +775,24 @@
             }
 
             let signalsHtml = '<div class="signals-container">';
-            
             releaseDays.slice(0,2).forEach(day => {
-                const lastReleaseForDay = getLastReleaseForDay(releases, day);
-                if (lastReleaseForDay) {
-                    const deadlineInfo = calculateDeadlineForDay(lastReleaseForDay.release_date, day);
-                    if (deadlineInfo) {
-                        const daysDisplay = deadlineInfo.daysLeft % 1 === 0 ? 
-                            deadlineInfo.daysLeft : 
-                            deadlineInfo.daysLeft.toFixed(1);
-                        
+                const last = getLastReleaseForDay(releases, day);
+                if (last) {
+                    const info = calculateDeadlineForDay(last.release_date, day);
+                    if (info) {
+                        const daysDisplay = info.daysLeft % 1 === 0 ? info.daysLeft : info.daysLeft.toFixed(1);
                         signalsHtml += `
-                            <div class="next-track-signal ${deadlineInfo.status.class}">
-                                <div class="signal-title">
-                                    ${deadlineInfo.status.emoji} 
-                                    <span class="signal-day">${deadlineInfo.dayName}</span>
-                                </div>
-                                <div class="signal-deadline">
-                                    ${deadlineInfo.daysLeft < 0 ? '🔥' : daysDisplay + 'д'}
-                                </div>
+                            <div class="next-track-signal ${info.status.class}">
+                                <div class="signal-title">${info.status.emoji} <span class="signal-day">${info.dayName}</span></div>
+                                <div class="signal-deadline">${info.daysLeft < 0 ? '🔥' : daysDisplay + 'д'}</div>
                             </div>
                         `;
                     }
                 }
             });
-            
             signalsHtml += '</div>';
 
-            card.innerHTML = `
-                ${imageHtml}
-                <div class="project-header">
-                    <h2>${escapeHtml(project.name)}</h2>
-                    ${releaseDaysHtml}
-                    ${lastReleasesHtml}
-                    ${signalsHtml}
-                </div>
-            `;
-            
+            card.innerHTML = `${imageHtml}<div class="project-header"><h2>${escapeHtml(project.name)}</h2>${releaseDaysHtml}${lastReleasesHtml}${signalsHtml}</div>`;
             return card;
         }
 
@@ -1064,7 +866,7 @@
         
         window.toggleForm = function() { 
             const form = document.getElementById('projectForm'); 
-            form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none'; 
+            form.style.display = form.style.display === 'none' ? 'block' : 'none'; 
         };
         
         window.onclick = function(event) { 
