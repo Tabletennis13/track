@@ -152,8 +152,8 @@
             margin-bottom: 5px;
         }
         
-        /* Информация о последнем релизе */
-        .last-release {
+        /* Информация о последних релизах */
+        .last-releases {
             background: #e3f2fd;
             padding: 12px;
             border-radius: 8px;
@@ -162,7 +162,7 @@
             border-left: 4px solid #2196f3;
         }
         
-        .last-release-title {
+        .last-releases-title {
             font-weight: bold;
             color: #1976d2;
             margin-bottom: 8px;
@@ -178,6 +178,16 @@
         
         .last-release-item:last-child {
             border-bottom: none;
+        }
+        
+        .release-day-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: #1976d2;
+            color: white;
+            font-size: 11px;
+            margin-left: 8px;
         }
         
         /* Сигналы для следующего трека */
@@ -459,6 +469,18 @@
             }
         }
 
+        // === ПОЛУЧЕНИЕ ПОСЛЕДНЕГО РЕЛИЗА ДЛЯ КОНКРЕТНОГО ДНЯ ===
+        function getLastReleaseForDay(releases, targetDay) {
+            if (!releases || releases.length === 0) return null;
+            
+            // Фильтруем релизы по дню недели и сортируем по дате (новые сверху)
+            const dayReleases = releases
+                .filter(r => new Date(r.release_date).getDay() === targetDay)
+                .sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
+            
+            return dayReleases.length > 0 ? dayReleases[0] : null;
+        }
+
         // === ПОЛУЧЕНИЕ СЛЕДУЮЩЕГО ДНЯ РЕЛИЗА ===
         function getNextReleaseDate(fromDate, targetDay) {
             const date = new Date(fromDate);
@@ -472,9 +494,9 @@
             return date;
         }
 
-        // === ПОЛУЧЕНИЕ ВСЕХ СЛЕДУЮЩИХ РЕЛИЗОВ ===
-        function getAllNextReleases(lastReleaseDate, releaseDays) {
-            if (!lastReleaseDate || !releaseDays || releaseDays.length === 0) return [];
+        // === РАСЧЕТ ДЕДЛАЙНА ДЛЯ КОНКРЕТНОГО ДНЯ ===
+        function calculateDeadlineForDay(lastReleaseDate, targetDay) {
+            if (!lastReleaseDate) return null;
             
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -482,38 +504,27 @@
             const lastRelease = new Date(lastReleaseDate);
             lastRelease.setHours(0, 0, 0, 0);
             
-            const results = [];
+            // Следующий релиз для этого дня
+            const nextReleaseDate = getNextReleaseDate(lastRelease, targetDay);
             
-            // Для каждого дня релиза считаем отдельно
-            releaseDays.forEach(day => {
-                // Следующий релиз для этого дня
-                const nextReleaseDate = getNextReleaseDate(lastRelease, day);
-                
-                // Если следующий релиз уже прошел, берем следующий после него
-                if (nextReleaseDate <= lastRelease) {
-                    nextReleaseDate.setDate(nextReleaseDate.getDate() + 7);
-                }
-                
-                // Дедлайн = следующий релиз - 17.5 дней
-                const deadlineTimestamp = nextReleaseDate.getTime() - (BUFFER_DAYS * 24 * 60 * 60 * 1000);
-                const deadlineForNewTrack = new Date(deadlineTimestamp);
-                deadlineForNewTrack.setHours(0, 0, 0, 0);
-                
-                // Сколько дней осталось до дедлайна
-                const msLeft = deadlineForNewTrack - today;
-                const daysLeft = Math.round((msLeft / (1000 * 60 * 60 * 24)) * 2) / 2;
-                
-                results.push({
-                    dayOfWeek: day,
-                    dayName: DAYS_FULL[day],
-                    nextReleaseDate: nextReleaseDate,
-                    deadlineForNewTrack: deadlineForNewTrack,
-                    daysLeft: daysLeft
-                });
-            });
+            // Дедлайн = следующий релиз - 17.5 дней
+            const deadlineTimestamp = nextReleaseDate.getTime() - (BUFFER_DAYS * 24 * 60 * 60 * 1000);
+            const deadlineForNewTrack = new Date(deadlineTimestamp);
+            deadlineForNewTrack.setHours(0, 0, 0, 0);
             
-            // Сортируем по ближайшему дедлайну
-            return results.sort((a, b) => a.daysLeft - b.daysLeft);
+            // Сколько дней осталось до дедлайна
+            const msLeft = deadlineForNewTrack - today;
+            const daysLeft = Math.round((msLeft / (1000 * 60 * 60 * 24)) * 2) / 2;
+            
+            return {
+                dayOfWeek: targetDay,
+                dayName: DAYS_FULL[targetDay],
+                lastReleaseDate: lastRelease,
+                nextReleaseDate: nextReleaseDate,
+                deadlineForNewTrack: deadlineForNewTrack,
+                daysLeft: daysLeft,
+                lastReleaseTrack: lastReleaseDate.track_name || 'Неизвестный трек'
+            };
         }
 
         // === ЗАГРУЗКА ВСЕХ ПРОЕКТОВ ===
@@ -553,100 +564,135 @@
             
             // Дни релизов
             let releaseDaysHtml = '';
+            let releaseDays = [];
+            
             if (project.release_days && project.release_days.length > 0) {
+                releaseDays = project.release_days;
                 const days = project.release_days.map(day => DAYS_FULL[day]).join(', ');
                 releaseDaysHtml = `
                     <div class="release-days">
                         <span>📅 Релизы: ${days}</span>
                     </div>
                 `;
+            } else {
+                // По умолчанию для старых проектов
+                releaseDays = [5]; // пятница
             }
             
-            // Получаем последний релиз
-            const lastRelease = releases.length > 0 ? releases[0] : null;
+            // Формируем блок с последними релизами для каждого дня
+            let lastReleasesHtml = '';
+            const lastReleasesByDay = [];
             
-            // Формируем блок с последним релизом
-            let lastReleaseHtml = '';
-            if (lastRelease) {
-                const releaseDate = new Date(lastRelease.release_date);
-                const dayName = DAYS_FULL[releaseDate.getDay()];
+            releaseDays.forEach(day => {
+                const lastRelease = getLastReleaseForDay(releases, day);
+                if (lastRelease) {
+                    lastReleasesByDay.push({
+                        day: day,
+                        dayName: DAYS_FULL[day],
+                        release: lastRelease
+                    });
+                }
+            });
+            
+            if (lastReleasesByDay.length > 0) {
+                lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀 Последние релизы:</div>';
                 
-                lastReleaseHtml = `
-                    <div class="last-release">
-                        <div class="last-release-title">📀 Последний релиз:</div>
+                lastReleasesByDay.forEach(item => {
+                    lastReleasesHtml += `
                         <div class="last-release-item">
-                            <span>${escapeHtml(lastRelease.track_name)}</span>
-                            <span style="font-weight: bold;">${formatDate(lastRelease.release_date)} (${dayName})</span>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            // Формируем сигналы для следующих треков
-            let signalsHtml = '';
-            if (lastRelease && project.release_days && project.release_days.length > 0) {
-                const nextReleases = getAllNextReleases(lastRelease.release_date, project.release_days);
-                
-                signalsHtml = '<div class="signals-container">';
-                nextReleases.forEach((release, index) => {
-                    let signalClass = 'signal-green';
-                    let signalEmoji = '✅';
-                    let signalText = 'Всё хорошо';
-                    
-                    if (release.daysLeft < 0) {
-                        signalClass = 'signal-red';
-                        signalEmoji = '🔥';
-                        signalText = 'ПРОСРОЧЕНО!';
-                    } else if (release.daysLeft <= 3) {
-                        signalClass = 'signal-red';
-                        signalEmoji = '⚠️';
-                        signalText = 'КРИТИЧНО!';
-                    } else if (release.daysLeft <= 7) {
-                        signalClass = 'signal-orange';
-                        signalEmoji = '⚠️';
-                        signalText = 'Срочно!';
-                    } else if (release.daysLeft <= 12) {
-                        signalClass = 'signal-yellow';
-                        signalEmoji = '📝';
-                        signalText = 'Пора делать';
-                    }
-                    
-                    const daysDisplay = release.daysLeft % 1 === 0 ? 
-                        release.daysLeft : 
-                        release.daysLeft.toFixed(1).replace('.', '.');
-                    
-                    signalsHtml += `
-                        <div class="next-track-signal ${signalClass}">
-                            <div class="signal-title">
-                                ${signalEmoji} ${signalText}
-                                <span class="signal-day">${release.dayName}</span>
-                            </div>
-                            <div class="signal-deadline">
-                                ${release.daysLeft < 0 ? '🔥 Дедлайн прошел!' : `Осталось: ${daysDisplay} ${getDaysWord(release.daysLeft)}`}
-                            </div>
-                            <div class="signal-info">
-                                <div class="signal-highlight">📅 Нужно сдать до: <strong>${formatDate(release.deadlineForNewTrack)} (${DAYS_FULL[release.deadlineForNewTrack.getDay()]})</strong></div>
-                                <div>🎯 Релиз: ${formatDate(release.nextReleaseDate)} (${release.dayName})</div>
-                            </div>
+                            <span>
+                                ${escapeHtml(item.release.track_name)}
+                                <span class="release-day-badge">${item.dayName}</span>
+                            </span>
+                            <span style="font-weight: bold;">${formatDate(item.release.release_date)}</span>
                         </div>
                     `;
                 });
+                
+                lastReleasesHtml += '</div>';
+            }
+            
+            // Формируем сигналы для следующих треков по каждому дню
+            let signalsHtml = '';
+            
+            if (releases.length > 0) {
+                signalsHtml = '<div class="signals-container">';
+                
+                releaseDays.forEach(day => {
+                    const lastReleaseForDay = getLastReleaseForDay(releases, day);
+                    
+                    if (lastReleaseForDay) {
+                        const deadlineInfo = calculateDeadlineForDay(lastReleaseForDay.release_date, day);
+                        
+                        if (deadlineInfo) {
+                            let signalClass = 'signal-green';
+                            let signalEmoji = '✅';
+                            let signalText = 'Всё хорошо';
+                            
+                            if (deadlineInfo.daysLeft < 0) {
+                                signalClass = 'signal-red';
+                                signalEmoji = '🔥';
+                                signalText = 'ПРОСРОЧЕНО!';
+                            } else if (deadlineInfo.daysLeft <= 3) {
+                                signalClass = 'signal-red';
+                                signalEmoji = '⚠️';
+                                signalText = 'КРИТИЧНО!';
+                            } else if (deadlineInfo.daysLeft <= 7) {
+                                signalClass = 'signal-orange';
+                                signalEmoji = '⚠️';
+                                signalText = 'Срочно!';
+                            } else if (deadlineInfo.daysLeft <= 12) {
+                                signalClass = 'signal-yellow';
+                                signalEmoji = '📝';
+                                signalText = 'Пора делать';
+                            }
+                            
+                            const daysDisplay = deadlineInfo.daysLeft % 1 === 0 ? 
+                                deadlineInfo.daysLeft : 
+                                deadlineInfo.daysLeft.toFixed(1).replace('.', '.');
+                            
+                            signalsHtml += `
+                                <div class="next-track-signal ${signalClass}">
+                                    <div class="signal-title">
+                                        ${signalEmoji} ${signalText}
+                                        <span class="signal-day">${deadlineInfo.dayName}</span>
+                                    </div>
+                                    <div class="signal-deadline">
+                                        ${deadlineInfo.daysLeft < 0 ? '🔥 Дедлайн прошел!' : `Осталось: ${daysDisplay} ${getDaysWord(deadlineInfo.daysLeft)}`}
+                                    </div>
+                                    <div class="signal-info">
+                                        <div class="signal-highlight">📅 Нужно сдать до: <strong>${formatDate(deadlineInfo.deadlineForNewTrack)} (${DAYS_FULL[deadlineInfo.deadlineForNewTrack.getDay()]})</strong></div>
+                                        <div>🎯 Следующий релиз: ${formatDate(deadlineInfo.nextReleaseDate)} (${deadlineInfo.dayName})</div>
+                                        <div style="margin-top: 5px; font-size: 12px; opacity: 0.8;">
+                                            <small>Последний трек: ${escapeHtml(deadlineInfo.lastReleaseTrack)}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        // Если для этого дня еще нет релизов
+                        signalsHtml += `
+                            <div class="next-track-signal signal-green">
+                                <div class="signal-title">
+                                    ✅ Нет релизов
+                                    <span class="signal-day">${DAYS_FULL[day]}</span>
+                                </div>
+                                <div class="signal-info">
+                                    Добавьте первый релиз на ${DAYS_FULL[day].toLowerCase()}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                
                 signalsHtml += '</div>';
-            } else if (!lastRelease) {
+            } else {
                 signalsHtml = `
                     <div class="next-track-signal signal-green">
                         <div class="signal-title">✅ Нет релизов</div>
                         <div class="signal-info">
                             Добавьте первый релиз, чтобы начать отсчет
-                        </div>
-                    </div>
-                `;
-            } else if (!project.release_days || project.release_days.length === 0) {
-                signalsHtml = `
-                    <div class="next-track-signal signal-yellow">
-                        <div class="signal-title">⚠️ Не указаны дни релизов</div>
-                        <div class="signal-info">
-                            Укажите дни релизов для проекта в настройках
                         </div>
                     </div>
                 `;
@@ -658,7 +704,7 @@
                 <div class="project-header">
                     <h2>${escapeHtml(project.name)}</h2>
                     ${releaseDaysHtml}
-                    ${lastReleaseHtml}
+                    ${lastReleasesHtml}
                 </div>
                 <div style="padding: 0 15px;">
                     ${signalsHtml}
