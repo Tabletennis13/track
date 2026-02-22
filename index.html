@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Release Tracker - VHQ Music</title>
     <style>
-        /* --- СТИЛИ (без изменений) --- */
+        /* --- СТИЛИ (полностью без изменений) --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
@@ -382,8 +382,8 @@
             sheetId: '11gCU7DVGgweld9A-jeo2F2rBh13MVxyQSz1DGb3EVYs',
             sheetName: 'Ответы на форму (1)',
             apiKey: 'AIzaSyB-QjJoeojwGFrzgPOnceY8HfeoB0-7Y_w',
-            projectNameColumnIndex: 2, // Колонка C
-            releaseDateColumnIndex: 9, // Колонка J
+            projectNameColumnIndex: 3, // Колонка D (индекс 3) - ИСПРАВЛЕНО!
+            releaseDateColumnIndex: 9, // Колонка J (индекс 9)
             allowedProjects: [
                 'Placcebo Beats',  // Исправлено: две "c"
                 'PLENUM',
@@ -565,9 +565,11 @@
                 statusEl.innerHTML = '⏳ Загрузка данных из Google Sheets...';
                 importBtn.disabled = true;
 
-                // Загружаем данные из таблицы
+                // Загружаем данные из таблицы (начиная со 2-й строки, чтобы пропустить заголовки)
                 const range = encodeURIComponent(`${GOOGLE_SHEETS_CONFIG.sheetName}!A2:J1000`);
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.sheetId}/values/${range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
+                
+                console.log('Загружаем URL:', url);
                 
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
@@ -575,8 +577,19 @@
                 const data = await response.json();
                 const googleRows = data.values || [];
                 
-                // Фильтруем пустые строки
-                const validRows = googleRows.filter(row => row.length > Math.max(GOOGLE_SHEETS_CONFIG.projectNameColumnIndex, GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex));
+                console.log('Все полученные строки:', googleRows);
+                
+                // Фильтруем строки, где есть данные в нужных колонках
+                const validRows = googleRows.filter(row => 
+                    row.length > GOOGLE_SHEETS_CONFIG.projectNameColumnIndex && 
+                    row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex] && 
+                    row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex].trim() !== '' &&
+                    row.length > GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex &&
+                    row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex] &&
+                    row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex].trim() !== ''
+                );
+                
+                console.log('Валидные строки:', validRows);
                 
                 statusEl.innerHTML = `⏳ Найдено ${validRows.length} записей. Фильтрация...`;
 
@@ -611,7 +624,9 @@
 
                 for (const row of validRows) {
                     const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
-                    const dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
+                    let dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
+
+                    console.log('Обработка строки:', { fullTitle, dateStr });
 
                     if (!fullTitle || !dateStr) {
                         skipped.invalid++;
@@ -627,6 +642,8 @@
                     
                     const projectNameFromSheet = fullTitle.substring(0, separatorIndex).trim();
                     const trackName = fullTitle.substring(separatorIndex + 3).trim();
+
+                    console.log('Разделено:', { projectNameFromSheet, trackName });
 
                     if (!projectNameFromSheet || !trackName) {
                         skipped.invalid++;
@@ -645,15 +662,31 @@
                         continue;
                     }
 
-                    // Нормализация даты
+                    // Нормализация даты - берем только первую часть до пробела
                     let normalizedDateStr;
                     try {
-                        const dateObj = new Date(dateStr);
-                        if (isNaN(dateObj.getTime())) {
-                            skipped.invalid++;
-                            continue;
+                        // Берем только дату (до пробела)
+                        const cleanDateStr = dateStr.split(/[\s\t]/)[0].trim();
+                        console.log('Чистая дата:', cleanDateStr);
+                        
+                        // Парсим дату в формате DD.MM.YYYY
+                        const dateParts = cleanDateStr.split('.');
+                        if (dateParts.length === 3) {
+                            // Создаем дату в формате YYYY-MM-DD
+                            const year = dateParts[2];
+                            const month = dateParts[1].padStart(2, '0');
+                            const day = dateParts[0].padStart(2, '0');
+                            normalizedDateStr = `${year}-${month}-${day}`;
+                            console.log('Нормализованная дата:', normalizedDateStr);
+                        } else {
+                            // Если не получилось, пробуем стандартный парсинг
+                            const dateObj = new Date(cleanDateStr);
+                            if (isNaN(dateObj.getTime())) {
+                                skipped.invalid++;
+                                continue;
+                            }
+                            normalizedDateStr = dateObj.toISOString().split('T')[0];
                         }
-                        normalizedDateStr = dateObj.toISOString().split('T')[0];
                     } catch {
                         skipped.invalid++;
                         continue;
@@ -671,6 +704,8 @@
                         release_date: normalizedDateStr
                     });
                 }
+
+                console.log('Результаты:', { newReleases, skipped });
 
                 // Показываем результат
                 if (newReleases.length === 0) {
