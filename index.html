@@ -30,11 +30,12 @@
             font-size: 28px;
         }
         
-        /* Форма добавления проекта */
+        /* Форма добавления проекта - теперь внизу */
         .form-section {
             background: white;
             padding: 20px;
             border-radius: 10px;
+            margin-top: 30px;
             margin-bottom: 20px;
         }
         
@@ -343,15 +344,41 @@
                 justify-content: center;
             }
         }
+
+        /* Разделитель */
+        .section-divider {
+            text-align: center;
+            margin: 30px 0 20px;
+            color: white;
+            font-size: 18px;
+            position: relative;
+        }
+        
+        .section-divider::before,
+        .section-divider::after {
+            content: "";
+            display: inline-block;
+            width: 30px;
+            height: 2px;
+            background: rgba(255,255,255,0.5);
+            margin: 0 10px;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎵 Release Tracker</h1>
         
-        <!-- Форма добавления проекта -->
+        <!-- Список проектов (сначала проекты) -->
+        <div class="projects-grid" id="projectsGrid"></div>
+        
+        <!-- Разделитель -->
+        <div class="section-divider">УПРАВЛЕНИЕ</div>
+        
+        <!-- Форма добавления проекта (теперь внизу) -->
         <div class="form-section" id="projectForm">
-            <h2 style="margin-bottom: 15px;">➕ Добавить проект</h2>
+            <h2 style="margin-bottom: 15px;">➕ Добавить новый проект</h2>
             <div class="form-group">
                 <label>Название проекта:</label>
                 <input type="text" id="projectName" placeholder="Например: Placebo Beats">
@@ -388,9 +415,6 @@
             </div>
             <button onclick="addProject()">Добавить проект</button>
         </div>
-        
-        <!-- Список проектов -->
-        <div class="projects-grid" id="projectsGrid"></div>
     </div>
     
     <!-- Мобильная кнопка -->
