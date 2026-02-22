@@ -16,20 +16,15 @@
             max-width: 1200px;
             margin: 0 auto;
         }
-        h1 {
-            text-align: center;
-            color: white;
-            margin-bottom: 15px;
-            font-size: 24px;
-        }
         
-        /* СТАТУС АВТООБНОВЛЕНИЯ */
+        /* СТАТУС АВТООБНОВЛЕНИЯ (ВНИЗУ) */
         .auto-update-status {
             background: #e3f2fd;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 12px;
             color: #1976d2;
             display: flex;
             align-items: center;
@@ -79,16 +74,16 @@
         
         .last-check {
             color: #666;
-            font-size: 12px;
+            font-size: 11px;
         }
         
         .new-tracks-badge {
             background: #ff5722;
             color: white;
-            padding: 3px 8px;
-            border-radius: 16px;
+            padding: 2px 6px;
+            border-radius: 12px;
             font-weight: bold;
-            font-size: 11px;
+            font-size: 10px;
             animation: bounce 1s ease;
         }
         
@@ -102,7 +97,7 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
-            margin-top: 10px;
+            margin-top: 5px;
         }
         
         @media (min-width: 768px) {
@@ -405,23 +400,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎵 VHQ Music</h1>
-
-        <!-- СТАТУС АВТООБНОВЛЕНИЯ -->
-        <div class="auto-update-status" id="autoUpdateStatus">
-            <div class="status-indicator">
-                <div class="pulse-dot"></div>
-                <span id="autoUpdateMessage">Авто 10с</span>
-            </div>
-            <div class="last-check" id="lastUpdateTime">
-                ⏱️ только что
-            </div>
-            <div id="newTracksBadge" style="display: none;" class="new-tracks-badge">
-                🎵 Новые!
-            </div>
-        </div>
-
-        <!-- Список проектов -->
+        <!-- Список проектов (ПЕРВЫМ ДЕЛОМ) -->
         <div class="projects-grid" id="projectsGrid"></div>
 
         <!-- Разделитель -->
@@ -451,6 +430,20 @@
                 </div>
             </div>
             <button onclick="addProject()">Добавить</button>
+        </div>
+
+        <!-- СТАТУС АВТООБНОВЛЕНИЯ (В САМОМ НИЗУ) -->
+        <div class="auto-update-status" id="autoUpdateStatus">
+            <div class="status-indicator">
+                <div class="pulse-dot"></div>
+                <span id="autoUpdateMessage">Авто 10с</span>
+            </div>
+            <div class="last-check" id="lastUpdateTime">
+                ⏱️ только что
+            </div>
+            <div id="newTracksBadge" style="display: none;" class="new-tracks-badge">
+                🎵 Новые!
+            </div>
         </div>
     </div>
 
@@ -737,10 +730,66 @@
         }
 
         async function loadAllProjects() {
-            const { data: projects } = await supabaseClient.from('projects').select('*').order('name');
+            // Получаем все проекты
+            const { data: projects } = await supabaseClient.from('projects').select('*');
+            
+            if (!projects) return;
+            
+            // Список проектов в нужном порядке (первые 5 фиксированы)
+            const fixedOrder = [
+                'Placcebo Beats',
+                'PLENUM',
+                'Мир детства',
+                'Звёздная ночь',
+                'Дом Медитации'
+            ];
+            
+            // Остальные проекты
+            const otherProjects = projects.filter(p => !fixedOrder.includes(p.name));
+            
+            // Сортируем остальные по срочности (по минимальному количеству дней до дедлайна)
+            const sortedOthers = await Promise.all(otherProjects.map(async (project) => {
+                const { data: releases } = await supabaseClient.from('releases').select('*').eq('project_id', project.id);
+                
+                let minDays = Infinity;
+                if (releases && releases.length > 0) {
+                    const releaseDays = project.release_days && project.release_days.length > 0 ? project.release_days : [5];
+                    
+                    releaseDays.forEach(day => {
+                        const lastRelease = getLastReleaseForDay(releases, day);
+                        if (lastRelease) {
+                            const deadlineInfo = calculateDeadlineForDay(lastRelease.release_date, day);
+                            if (deadlineInfo && deadlineInfo.daysLeft < minDays) {
+                                minDays = deadlineInfo.daysLeft;
+                            }
+                        }
+                    });
+                }
+                
+                return { project, minDays };
+            }));
+            
+            // Сортируем по возрастанию дней (самые срочные первые)
+            sortedOthers.sort((a, b) => a.minDays - b.minDays);
+            
+            // Собираем финальный порядок: сначала фиксированные, потом отсортированные
+            const finalProjects = [];
+            
+            // Добавляем фиксированные проекты в нужном порядке
+            fixedOrder.forEach(name => {
+                const project = projects.find(p => p.name === name);
+                if (project) finalProjects.push(project);
+            });
+            
+            // Добавляем отсортированные остальные
+            sortedOthers.forEach(item => {
+                finalProjects.push(item.project);
+            });
+            
             const grid = document.getElementById('projectsGrid');
             grid.innerHTML = '';
-            for (const project of projects || []) {
+            
+            for (const project of finalProjects) {
                 const { data: releases } = await supabaseClient.from('releases').select('*').eq('project_id', project.id).order('release_date', { ascending: false });
                 grid.appendChild(createProjectCard(project, releases || []));
             }
