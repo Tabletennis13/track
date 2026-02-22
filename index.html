@@ -97,23 +97,14 @@
             50% { transform: scale(1.1); }
         }
         
-        /* СЕТКА ПРОЕКТОВ - АДАПТИВНАЯ */
+        /* СЕТКА ПРОЕКТОВ */
         .projects-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* По умолчанию 2 колонки */
+            grid-template-columns: repeat(2, 1fr);
             gap: 10px;
             margin-top: 10px;
         }
         
-        /* На маленьких телефонах (до 360px) оставляем 2 колонки */
-        @media (max-width: 360px) {
-            .projects-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 8px;
-            }
-        }
-        
-        /* На планшетах и больше - 3 колонки */
         @media (min-width: 768px) {
             .projects-grid {
                 grid-template-columns: repeat(3, 1fr);
@@ -121,7 +112,6 @@
             }
         }
         
-        /* На десктопах - 3-4 колонки */
         @media (min-width: 1024px) {
             .projects-grid {
                 grid-template-columns: repeat(3, 1fr);
@@ -135,13 +125,15 @@
             }
         }
         
-        /* КАРТОЧКА ПРОЕКТА - УМЕНЬШЕННАЯ ДЛЯ МОБИЛЬНЫХ */
+        /* КАРТОЧКА ПРОЕКТА */
         .project-card {
             background: white;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             font-size: 12px;
+            display: flex;
+            flex-direction: column;
         }
         
         .project-image {
@@ -219,6 +211,7 @@
         
         .signals-container {
             margin: 8px 0;
+            padding: 0 8px;
         }
         
         .next-track-signal {
@@ -226,6 +219,30 @@
             border-radius: 6px;
             margin-bottom: 6px;
             font-size: 11px;
+        }
+        
+        .signal-green {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .signal-yellow {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+        }
+        
+        .signal-orange {
+            background: #ffd8b2;
+            border: 1px solid #ffb77c;
+            color: #b24d00;
+        }
+        
+        .signal-red {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
         }
         
         .signal-title {
@@ -252,26 +269,7 @@
             text-align: center;
         }
         
-        .signal-info {
-            margin-top: 4px;
-            font-size: 10px;
-            opacity: 0.9;
-        }
-        
-        .signal-highlight {
-            font-weight: bold;
-            font-size: 11px;
-            color: inherit;
-        }
-        
-        .add-release-btn {
-            background: #28a745;
-            margin-top: 8px;
-            padding: 8px;
-            font-size: 11px;
-        }
-        
-        /* ФОРМА ДОБАВЛЕНИЯ ПРОЕКТА */
+        /* ФОРМА ДОБАВЛЕНИЯ */
         .form-section {
             background: white;
             padding: 15px;
@@ -292,59 +290,116 @@
         label {
             font-size: 12px;
             margin-bottom: 3px;
+            display: block;
         }
         
         input, select {
+            width: 100%;
             padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
             font-size: 13px;
         }
         
         .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
             gap: 5px;
+            margin-top: 5px;
         }
         
         .checkbox-item {
-            min-width: 50px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            min-width: 45px;
             font-size: 11px;
+        }
+        
+        .checkbox-item input {
+            width: auto;
+            margin-right: 2px;
         }
         
         button {
+            background: #667eea;
+            color: white;
+            border: none;
             padding: 10px;
+            border-radius: 5px;
             font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
         
         .modal-content {
+            background: white;
             padding: 20px;
-        }
-        
-        .modal-content h2 {
-            font-size: 18px;
+            border-radius: 8px;
+            max-width: 400px;
+            width: 90%;
         }
         
         .close {
+            float: right;
             font-size: 24px;
-        }
-        
-        .no-releases {
-            font-size: 11px;
-            padding: 10px;
+            cursor: pointer;
+            color: #aaa;
         }
         
         .mobile-add-btn {
-            width: 50px;
-            height: 50px;
-            font-size: 24px;
+            display: none;
+            position: fixed;
             bottom: 15px;
             right: 15px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            font-size: 24px;
+            border: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 100;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @media (max-width: 480px) {
+            .mobile-add-btn {
+                display: flex;
+            }
         }
         
         .section-divider {
+            text-align: center;
             margin: 20px 0 15px;
+            color: white;
             font-size: 16px;
         }
         .section-divider::before,
         .section-divider::after {
+            content: "";
+            display: inline-block;
             width: 20px;
+            height: 2px;
+            background: rgba(255,255,255,0.5);
+            margin: 0 5px;
+            vertical-align: middle;
         }
     </style>
 </head>
@@ -365,9 +420,6 @@
                 🎵 Новые!
             </div>
         </div>
-
-        <!-- Скрытый статус для отладки -->
-        <div id="importStatus" style="display: none; background: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"></div>
 
         <!-- Список проектов -->
         <div class="projects-grid" id="projectsGrid"></div>
@@ -633,7 +685,8 @@
         }
         
         function getNextReleaseDate(fromDate, targetDay) {
-            const date = new Date(fromDate); date.setHours(0,0,0,0);
+            const date = new Date(fromDate); 
+            date.setHours(0,0,0,0);
             const currentDay = date.getDay();
             let daysToAdd = (targetDay - currentDay + 7) % 7;
             if (daysToAdd === 0) daysToAdd = 7;
@@ -643,14 +696,44 @@
         
         function calculateDeadlineForDay(lastReleaseDate, targetDay) {
             if (!lastReleaseDate) return null;
-            const today = new Date(); today.setHours(0,0,0,0);
-            const lastRelease = new Date(lastReleaseDate); lastRelease.setHours(0,0,0,0);
+            
+            const today = new Date(); 
+            today.setHours(0,0,0,0);
+            
+            const lastRelease = new Date(lastReleaseDate); 
+            lastRelease.setHours(0,0,0,0);
+            
             const nextReleaseDate = getNextReleaseDate(lastRelease, targetDay);
             const deadlineTimestamp = nextReleaseDate.getTime() - (BUFFER_DAYS * 24 * 60 * 60 * 1000);
-            const deadlineForNewTrack = new Date(deadlineTimestamp); deadlineForNewTrack.setHours(0,0,0,0);
+            const deadlineForNewTrack = new Date(deadlineTimestamp); 
+            deadlineForNewTrack.setHours(0,0,0,0);
+            
             const msLeft = deadlineForNewTrack - today;
             const daysLeft = Math.round((msLeft / (1000 * 60 * 60 * 24)) * 2) / 2;
-            return { dayOfWeek: targetDay, dayName: DAYS_FULL[targetDay], lastReleaseDate: lastRelease, nextReleaseDate: nextReleaseDate, deadlineForNewTrack: deadlineForNewTrack, daysLeft: daysLeft, lastReleaseTrack: lastReleaseDate.track_name || '' };
+            
+            // Определяем статус
+            let status = {
+                class: 'signal-green',
+                emoji: '✅',
+                text: 'OK',
+                daysLeft: daysLeft
+            };
+            
+            if (daysLeft < 0) {
+                status = { class: 'signal-red', emoji: '🔥', text: 'Просрочено', daysLeft: daysLeft };
+            } else if (daysLeft <= 3) {
+                status = { class: 'signal-red', emoji: '⚠️', text: 'Критично', daysLeft: daysLeft };
+            } else if (daysLeft <= 7) {
+                status = { class: 'signal-orange', emoji: '⚠️', text: 'Срочно', daysLeft: daysLeft };
+            } else if (daysLeft <= 12) {
+                status = { class: 'signal-yellow', emoji: '📝', text: 'Пора', daysLeft: daysLeft };
+            }
+            
+            return {
+                dayName: DAYS_FULL[targetDay],
+                daysLeft: daysLeft,
+                status: status
+            };
         }
 
         async function loadAllProjects() {
@@ -664,75 +747,158 @@
         }
 
         function createProjectCard(project, releases) {
-            const card = document.createElement('div'); card.className = 'project-card';
+            const card = document.createElement('div'); 
+            card.className = 'project-card';
+            
+            // Изображение
             let imageHtml = '<div class="project-image" style="background:#ddd;display:flex;align-items:center;justify-content:center;">📷</div>';
             if (project.image_url) imageHtml = `<img src="${project.image_url}" class="project-image">`;
 
+            // Дни релизов
             let releaseDays = project.release_days && project.release_days.length > 0 ? project.release_days : [5];
             let releaseDaysHtml = project.release_days ? `<div class="release-days"><span>${project.release_days.map(d => DAYS_FULL[d]).join(' ')}</span></div>` : '';
 
-            let lastReleasesHtml = ''; const lastReleasesByDay = [];
-            releaseDays.forEach(day => { const lastRelease = getLastReleaseForDay(releases, day); if (lastRelease) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: lastRelease }); });
+            // Последние релизы
+            let lastReleasesHtml = ''; 
+            const lastReleasesByDay = [];
+            releaseDays.forEach(day => { 
+                const lastRelease = getLastReleaseForDay(releases, day); 
+                if (lastRelease) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: lastRelease }); 
+            });
+            
             if (lastReleasesByDay.length > 0) {
                 lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀</div>';
-                lastReleasesByDay.slice(0,2).forEach(item => { lastReleasesHtml += `<div class="last-release-item"><span>${escapeHtml(item.release.track_name).substring(0,15)}${escapeHtml(item.release.track_name).length>15?'...':''}<span class="release-day-badge">${item.dayName}</span></span><span>${formatDate(item.release.release_date).slice(5)}</span></div>`; });
+                lastReleasesByDay.slice(0,2).forEach(item => { 
+                    lastReleasesHtml += `<div class="last-release-item">
+                        <span>${escapeHtml(item.release.track_name).substring(0,12)}${escapeHtml(item.release.track_name).length>12?'...':''}<span class="release-day-badge">${item.dayName}</span></span>
+                        <span>${formatDate(item.release.release_date)}</span>
+                    </div>`; 
+                });
                 lastReleasesHtml += '</div>';
             }
 
-            let signalsHtml = '';
-            if (releases.length > 0) {
-                signalsHtml = '<div class="signals-container">';
-                releaseDays.slice(0,2).forEach(day => {
-                    const lastReleaseForDay = getLastReleaseForDay(releases, day);
-                    if (lastReleaseForDay) {
-                        const deadlineInfo = calculateDeadlineForDay(lastReleaseForDay.release_date, day);
-                        if (deadlineInfo) {
-                            let signalClass = 'signal-green', signalEmoji = '✅';
-                            if (deadlineInfo.daysLeft < 0) { signalClass = 'signal-red'; signalEmoji = '🔥'; }
-                            else if (deadlineInfo.daysLeft <= 3) { signalClass = 'signal-red'; signalEmoji = '⚠️'; }
-                            else if (deadlineInfo.daysLeft <= 7) { signalClass = 'signal-orange'; signalEmoji = '⚠️'; }
-                            else if (deadlineInfo.daysLeft <= 12) { signalClass = 'signal-yellow'; signalEmoji = '📝'; }
-                            const daysDisplay = deadlineInfo.daysLeft % 1 === 0 ? deadlineInfo.daysLeft : deadlineInfo.daysLeft.toFixed(1);
-                            signalsHtml += `<div class="next-track-signal ${signalClass}"><div class="signal-title">${signalEmoji} <span class="signal-day">${deadlineInfo.dayName}</span></div><div class="signal-deadline">${deadlineInfo.daysLeft < 0 ? '🔥' : daysDisplay}</div></div>`;
-                        }
+            // Сигналы
+            let signalsHtml = '<div class="signals-container">';
+            
+            releaseDays.slice(0,2).forEach(day => {
+                const lastReleaseForDay = getLastReleaseForDay(releases, day);
+                if (lastReleaseForDay) {
+                    const deadlineInfo = calculateDeadlineForDay(lastReleaseForDay.release_date, day);
+                    if (deadlineInfo) {
+                        const daysDisplay = deadlineInfo.daysLeft % 1 === 0 ? 
+                            deadlineInfo.daysLeft : 
+                            deadlineInfo.daysLeft.toFixed(1);
+                        
+                        signalsHtml += `
+                            <div class="next-track-signal ${deadlineInfo.status.class}">
+                                <div class="signal-title">
+                                    ${deadlineInfo.status.emoji} 
+                                    <span class="signal-day">${deadlineInfo.dayName}</span>
+                                </div>
+                                <div class="signal-deadline">
+                                    ${deadlineInfo.daysLeft < 0 ? '🔥' : daysDisplay + 'д'}
+                                </div>
+                            </div>
+                        `;
                     }
-                });
-                signalsHtml += '</div>';
-            }
+                }
+            });
+            
+            signalsHtml += '</div>';
 
-            card.innerHTML = `${imageHtml}<div class="project-header"><h2>${escapeHtml(project.name)}</h2>${releaseDaysHtml}${lastReleasesHtml}${signalsHtml}</div>`;
+            card.innerHTML = `
+                ${imageHtml}
+                <div class="project-header">
+                    <h2>${escapeHtml(project.name)}</h2>
+                    ${releaseDaysHtml}
+                    ${lastReleasesHtml}
+                    ${signalsHtml}
+                </div>
+            `;
+            
             return card;
         }
 
-        function formatDate(date) { const d = new Date(date); return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }); }
-        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+        function formatDate(date) { 
+            const d = new Date(date); 
+            return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }); 
+        }
+        
+        function escapeHtml(text) { 
+            const div = document.createElement('div'); 
+            div.textContent = text; 
+            return div.innerHTML; 
+        }
 
-        window.openReleaseModal = function(projectId) { selectedProjectId = projectId; document.getElementById('releaseModal').style.display = 'flex'; };
-        window.closeModal = function() { document.getElementById('releaseModal').style.display = 'none'; selectedProjectId = null; };
+        // === ФУНКЦИИ ДЛЯ КНОПОК ===
+        window.openReleaseModal = function(projectId) { 
+            selectedProjectId = projectId; 
+            document.getElementById('releaseModal').style.display = 'flex'; 
+            document.getElementById('trackName').value = '';
+            document.getElementById('releaseDate').value = '';
+        };
+        
+        window.closeModal = function() { 
+            document.getElementById('releaseModal').style.display = 'none'; 
+            selectedProjectId = null; 
+        };
         
         window.addProject = async function() {
-            const name = document.getElementById('projectName').value.trim(); const image = document.getElementById('projectImage').value.trim();
+            const name = document.getElementById('projectName').value.trim(); 
+            const image = document.getElementById('projectImage').value.trim();
             const releaseDays = [];
-            if (document.getElementById('dayMon').checked) releaseDays.push(1); if (document.getElementById('dayTue').checked) releaseDays.push(2); if (document.getElementById('dayWed').checked) releaseDays.push(3); if (document.getElementById('dayThu').checked) releaseDays.push(4); if (document.getElementById('dayFri').checked) releaseDays.push(5); if (document.getElementById('daySat').checked) releaseDays.push(6); if (document.getElementById('daySun').checked) releaseDays.push(0);
+            
+            if (document.getElementById('dayMon').checked) releaseDays.push(1);
+            if (document.getElementById('dayTue').checked) releaseDays.push(2);
+            if (document.getElementById('dayWed').checked) releaseDays.push(3);
+            if (document.getElementById('dayThu').checked) releaseDays.push(4);
+            if (document.getElementById('dayFri').checked) releaseDays.push(5);
+            if (document.getElementById('daySat').checked) releaseDays.push(6);
+            if (document.getElementById('daySun').checked) releaseDays.push(0);
+            
             if (!name) { alert('Введите название'); return; }
             if (releaseDays.length === 0) { alert('Выберите дни'); return; }
-            await supabaseClient.from('projects').insert([{ name, image_url: image || null, release_days: releaseDays }]);
-            document.getElementById('projectName').value = ''; document.getElementById('projectImage').value = '';
+            
+            await supabaseClient.from('projects').insert([{ 
+                name, 
+                image_url: image || null, 
+                release_days: releaseDays 
+            }]);
+            
+            document.getElementById('projectName').value = ''; 
+            document.getElementById('projectImage').value = '';
             document.querySelectorAll('#projectForm input[type="checkbox"]').forEach(cb => cb.checked = false);
             await loadAllProjects();
         };
         
         window.addRelease = async function() {
-            const track = document.getElementById('trackName').value.trim(); const date = document.getElementById('releaseDate').value;
+            const track = document.getElementById('trackName').value.trim(); 
+            const date = document.getElementById('releaseDate').value;
+            
             if (!track || !date) { alert('Заполните поля'); return; }
             if (!selectedProjectId) { alert('Ошибка'); return; }
-            await supabaseClient.from('releases').insert([{ project_id: selectedProjectId, track_name: track, release_date: date }]);
-            closeModal(); await loadAllProjects();
+            
+            await supabaseClient.from('releases').insert([{ 
+                project_id: selectedProjectId, 
+                track_name: track, 
+                release_date: date 
+            }]);
+            
+            closeModal(); 
+            await loadAllProjects();
         };
         
-        window.toggleForm = function() { const form = document.getElementById('projectForm'); form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none'; };
-        window.onclick = function(event) { const modal = document.getElementById('releaseModal'); if (event.target === modal) closeModal(); };
+        window.toggleForm = function() { 
+            const form = document.getElementById('projectForm'); 
+            form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none'; 
+        };
+        
+        window.onclick = function(event) { 
+            const modal = document.getElementById('releaseModal'); 
+            if (event.target === modal) closeModal(); 
+        };
 
+        // Обновление времени
         setInterval(updateLastCheckTime, 1000);
     </script>
 </body>
