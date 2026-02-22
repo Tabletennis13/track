@@ -554,7 +554,12 @@
                 
                 const projectMap = new Map();
                 projects?.forEach(p => {
-                    if (GOOGLE_SHEETS_CONFIG.allowedProjects.includes(p.name)) {
+                    // Более гибкое сопоставление проектов
+                    const matchedProject = GOOGLE_SHEETS_CONFIG.allowedProjects.find(allowed => 
+                        p.name.toLowerCase().includes(allowed.toLowerCase()) || 
+                        allowed.toLowerCase().includes(p.name.toLowerCase())
+                    );
+                    if (matchedProject) {
                         projectMap.set(p.name, p.id);
                     }
                 });
@@ -571,25 +576,50 @@
                 });
                 
                 const newReleases = [];
+                const skipped = { noProject: 0, duplicate: 0, invalid: 0, noSeparator: 0 };
                 
                 for (const row of validRows) {
                     const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
                     let dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
                     
-                    if (!fullTitle || !dateStr) continue;
+                    if (!fullTitle || !dateStr) {
+                        skipped.invalid++;
+                        continue;
+                    }
                     
                     const separatorIndex = fullTitle.indexOf(' - ');
-                    if (separatorIndex === -1) continue;
+                    if (separatorIndex === -1) {
+                        skipped.noSeparator++;
+                        continue;
+                    }
                     
                     const projectNameFromSheet = fullTitle.substring(0, separatorIndex).trim();
                     const trackName = fullTitle.substring(separatorIndex + 3).trim();
                     
-                    if (!projectNameFromSheet || !trackName) continue;
-                    if (!GOOGLE_SHEETS_CONFIG.allowedProjects.includes(projectNameFromSheet)) continue;
+                    if (!projectNameFromSheet || !trackName) {
+                        skipped.invalid++;
+                        continue;
+                    }
                     
-                    const projectId = projectMap.get(projectNameFromSheet);
-                    if (!projectId) continue;
+                    // Более гибкое сравнение названий проектов
+                    let matchedProjectId = null;
+                    let matchedProjectName = null;
                     
+                    for (const [dbName, dbId] of projectMap.entries()) {
+                        if (dbName.toLowerCase().includes(projectNameFromSheet.toLowerCase()) || 
+                            projectNameFromSheet.toLowerCase().includes(dbName.toLowerCase())) {
+                            matchedProjectId = dbId;
+                            matchedProjectName = dbName;
+                            break;
+                        }
+                    }
+                    
+                    if (!matchedProjectId) {
+                        skipped.noProject++;
+                        continue;
+                    }
+                    
+                    // Нормализация даты
                     let normalizedDateStr;
                     try {
                         const cleanDateStr = dateStr.split(/[\s\t]/)[0].trim();
@@ -600,20 +630,27 @@
                             const day = dateParts[0].padStart(2, '0');
                             normalizedDateStr = `${year}-${month}-${day}`;
                         } else {
+                            skipped.invalid++;
                             continue;
                         }
                     } catch {
+                        skipped.invalid++;
                         continue;
                     }
                     
-                    const trackKey = `${projectId}_${trackName}_${normalizedDateStr}`;
-                    if (!existingTracks.has(trackKey)) {
-                        newReleases.push({
-                            project_id: projectId,
-                            track_name: trackName,
-                            release_date: normalizedDateStr
-                        });
+                    const trackKey = `${matchedProjectId}_${trackName}_${normalizedDateStr}`;
+                    if (existingTracks.has(trackKey)) {
+                        skipped.duplicate++;
+                        continue;
                     }
+                    
+                    newReleases.push({
+                        project_id: matchedProjectId,
+                        track_name: trackName,
+                        release_date: normalizedDateStr
+                    });
+                    
+                    console.log(`Найден новый трек: ${matchedProjectName} - ${trackName} (${normalizedDateStr})`);
                 }
                 
                 if (newReleases.length > 0) {
