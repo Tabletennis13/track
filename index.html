@@ -552,15 +552,21 @@
                 
                 const { data: projects } = await supabaseClient.from('projects').select('id, name');
                 
+                // СОЗДАЕМ КАРТУ ПРОЕКТОВ С РАЗНЫМИ ВАРИАНТАМИ НАЗВАНИЙ
                 const projectMap = new Map();
+                const projectNameVariants = new Map(); // для поиска по разным вариантам
+                
                 projects?.forEach(p => {
-                    // Более гибкое сопоставление проектов
-                    const matchedProject = GOOGLE_SHEETS_CONFIG.allowedProjects.find(allowed => 
-                        p.name.toLowerCase().includes(allowed.toLowerCase()) || 
-                        allowed.toLowerCase().includes(p.name.toLowerCase())
-                    );
-                    if (matchedProject) {
-                        projectMap.set(p.name, p.id);
+                    projectMap.set(p.name, p.id);
+                    
+                    // Добавляем разные варианты написания
+                    projectNameVariants.set(p.name.toLowerCase(), p.id);
+                    projectNameVariants.set(p.name.replace(/[^\w\s]/g, '').toLowerCase(), p.id);
+                    
+                    // Специально для Romano Lunario
+                    if (p.name.includes('Romano')) {
+                        projectNameVariants.set('romano lunario', p.id);
+                        projectNameVariants.set('romano', p.id);
                     }
                 });
                 
@@ -601,20 +607,48 @@
                         continue;
                     }
                     
-                    // Более гибкое сравнение названий проектов
-                    let matchedProjectId = null;
-                    let matchedProjectName = null;
+                    // ПОИСК ID ПРОЕКТА ПО РАЗНЫМ ВАРИАНТАМ
+                    let projectId = null;
                     
-                    for (const [dbName, dbId] of projectMap.entries()) {
-                        if (dbName.toLowerCase().includes(projectNameFromSheet.toLowerCase()) || 
-                            projectNameFromSheet.toLowerCase().includes(dbName.toLowerCase())) {
-                            matchedProjectId = dbId;
-                            matchedProjectName = dbName;
-                            break;
+                    // 1. Прямое совпадение
+                    if (projectMap.has(projectNameFromSheet)) {
+                        projectId = projectMap.get(projectNameFromSheet);
+                    }
+                    
+                    // 2. Поиск по базе данных
+                    if (!projectId) {
+                        for (const [dbName, dbId] of projectMap.entries()) {
+                            if (dbName.toLowerCase() === projectNameFromSheet.toLowerCase()) {
+                                projectId = dbId;
+                                break;
+                            }
                         }
                     }
                     
-                    if (!matchedProjectId) {
+                    // 3. Поиск по вхождению
+                    if (!projectId) {
+                        for (const [dbName, dbId] of projectMap.entries()) {
+                            if (dbName.toLowerCase().includes(projectNameFromSheet.toLowerCase()) || 
+                                projectNameFromSheet.toLowerCase().includes(dbName.toLowerCase())) {
+                                projectId = dbId;
+                                console.log(`Найдено по вхождению: ${dbName} -> ${projectNameFromSheet}`);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 4. СПЕЦИАЛЬНО ДЛЯ ROMANO LUNARIO
+                    if (!projectId && projectNameFromSheet.toLowerCase().includes('romano')) {
+                        for (const [dbName, dbId] of projectMap.entries()) {
+                            if (dbName.toLowerCase().includes('romano')) {
+                                projectId = dbId;
+                                console.log(`Специальное совпадение для Romano: ${dbName} -> ${projectNameFromSheet}`);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!projectId) {
                         skipped.noProject++;
                         continue;
                     }
@@ -638,27 +672,35 @@
                         continue;
                     }
                     
-                    const trackKey = `${matchedProjectId}_${trackName}_${normalizedDateStr}`;
+                    const trackKey = `${projectId}_${trackName}_${normalizedDateStr}`;
                     if (existingTracks.has(trackKey)) {
                         skipped.duplicate++;
                         continue;
                     }
                     
                     newReleases.push({
-                        project_id: matchedProjectId,
+                        project_id: projectId,
                         track_name: trackName,
                         release_date: normalizedDateStr
                     });
                     
-                    console.log(`Найден новый трек: ${matchedProjectName} - ${trackName} (${normalizedDateStr})`);
+                    console.log(`✅ Найден новый трек для проекта ID ${projectId}: ${trackName} (${normalizedDateStr})`);
                 }
                 
                 if (newReleases.length > 0) {
+                    console.log(`Добавляем ${newReleases.length} новых треков...`);
                     for (const release of newReleases) {
-                        await supabaseClient.from('releases').insert([release]);
+                        const { error } = await supabaseClient.from('releases').insert([release]);
+                        if (error) {
+                            console.error('Ошибка добавления:', error);
+                        } else {
+                            console.log('Трек добавлен:', release);
+                        }
                     }
                     await loadAllProjects();
                     showNewTracksNotification(newReleases.length);
+                } else {
+                    console.log('Новых треков не найдено');
                 }
                 
                 lastCheckTime = new Date();
