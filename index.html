@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Release Tracker - VHQ Music</title>
     <style>
-        /* --- СТИЛИ (полностью без изменений) --- */
+        /* --- СТИЛИ --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
@@ -22,6 +22,82 @@
             margin-bottom: 20px;
             font-size: 28px;
         }
+        
+        /* СТАТУС АВТООБНОВЛЕНИЯ */
+        .auto-update-status {
+            background: #e3f2fd;
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #1976d2;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4caf50;
+            position: relative;
+        }
+        
+        .pulse-dot::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(2); opacity: 0; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        
+        .checking .pulse-dot {
+            background: #ff9800;
+        }
+        
+        .checking .pulse-dot::before {
+            background: #ff9800;
+        }
+        
+        .last-check {
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .new-tracks-badge {
+            background: #ff5722;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 13px;
+            animation: bounce 1s ease;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        /* Форма добавления проекта */
         .form-section {
             background: white;
             padding: 20px;
@@ -307,12 +383,21 @@
     <div class="container">
         <h1>🎵 Release Tracker - VHQ Music</h1>
 
-        <!-- КНОПКА ИМПОРТА И СТАТУС -->
-        <div style="text-align: right; margin-bottom: 20px;">
-            <button id="importFromGoogleBtn" style="background: #ff5722; width: auto; padding: 10px 20px; display: inline-block; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer;">
-                📥 Импорт новых треков из Google Sheets
-            </button>
+        <!-- СТАТУС АВТООБНОВЛЕНИЯ -->
+        <div class="auto-update-status" id="autoUpdateStatus">
+            <div class="status-indicator">
+                <div class="pulse-dot"></div>
+                <span id="autoUpdateMessage">🔄 Автообновление: каждые 10 секунд</span>
+            </div>
+            <div class="last-check" id="lastUpdateTime">
+                ⏱️ Последняя проверка: только что
+            </div>
+            <div id="newTracksBadge" style="display: none;" class="new-tracks-badge">
+                🎵 Найдены новые треки!
+            </div>
         </div>
+
+        <!-- Скрытый статус для отладки -->
         <div id="importStatus" style="display: none; background: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);"></div>
 
         <!-- Список проектов -->
@@ -382,7 +467,7 @@
             sheetId: '11gCU7DVGgweld9A-jeo2F2rBh13MVxyQSz1DGb3EVYs',
             sheetName: 'Ответы на форму (1)',
             apiKey: 'AIzaSyB-QjJoeojwGFrzgPOnceY8HfeoB0-7Y_w',
-            projectNameColumnIndex: 2, // Колонка C (индекс 2) - ПОЛНОЕ НАЗВАНИЕ РЕЛИЗА
+            projectNameColumnIndex: 2, // Колонка C (индекс 2)
             releaseDateColumnIndex: 9, // Колонка J (индекс 9)
             allowedProjects: [
                 'Placcebo Beats',
@@ -403,17 +488,195 @@
         let selectedProjectId = null;
         const BUFFER_DAYS = 17.5; // 2.5 недели
         const DAYS_FULL = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+        
+        // === ПЕРЕМЕННЫЕ ДЛЯ АВТООБНОВЛЕНИЯ ===
+        let autoUpdateTimer = null;
+        let isChecking = false;
+        let lastCheckTime = new Date();
+        let foundNewTracks = false;
 
         // === ЗАПУСК ПРИ ЗАГРУЗКЕ ===
         document.addEventListener('DOMContentLoaded', function() {
             startApp();
-            document.getElementById('importFromGoogleBtn').addEventListener('click', importOnlyNewFromSheets);
+            startAutoUpdate(); // Запускаем автообновление
         });
 
         // === ОСНОВНАЯ ФУНКЦИЯ ===
         async function startApp() {
             await createInitialProjects();
             await loadAllProjects();
+        }
+
+        // === ЗАПУСК АВТОМАТИЧЕСКОГО ОБНОВЛЕНИЯ ===
+        function startAutoUpdate() {
+            // Очищаем предыдущий таймер если есть
+            if (autoUpdateTimer) {
+                clearInterval(autoUpdateTimer);
+            }
+            
+            // Запускаем проверку каждые 10 секунд
+            autoUpdateTimer = setInterval(checkForNewTracks, 10000); // 10000 мс = 10 секунд
+            
+            // Сразу делаем первую проверку
+            setTimeout(checkForNewTricks, 2000); // Через 2 секунды после загрузки
+        }
+
+        // === ПРОВЕРКА НОВЫХ ТРЕКОВ ===
+        async function checkForNewTracks() {
+            // Предотвращаем одновременные проверки
+            if (isChecking) return;
+            
+            isChecking = true;
+            
+            try {
+                // Обновляем индикатор статуса
+                document.getElementById('autoUpdateStatus').classList.add('checking');
+                
+                // Загружаем данные из таблицы
+                const range = encodeURIComponent(`${GOOGLE_SHEETS_CONFIG.sheetName}!A2:J1000`);
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.sheetId}/values/${range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
+                
+                const data = await response.json();
+                const googleRows = data.values || [];
+                
+                // Фильтруем строки с данными
+                const validRows = googleRows.filter(row => 
+                    row.length > GOOGLE_SHEETS_CONFIG.projectNameColumnIndex && 
+                    row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex] && 
+                    row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex].trim() !== '' &&
+                    row.length > GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex &&
+                    row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex] &&
+                    row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex].trim() !== ''
+                );
+                
+                // Получаем проекты из базы
+                const { data: projects } = await supabaseClient.from('projects').select('id, name');
+                
+                const projectMap = new Map();
+                projects?.forEach(p => {
+                    if (GOOGLE_SHEETS_CONFIG.allowedProjects.includes(p.name)) {
+                        projectMap.set(p.name, p.id);
+                    }
+                });
+                
+                if (projectMap.size === 0) return;
+                
+                // Получаем существующие релизы
+                const projectIds = Array.from(projectMap.values());
+                const { data: existingReleases } = await supabaseClient.from('releases').select('track_name, release_date, project_id').in('project_id', projectIds);
+                
+                const existingTracks = new Set();
+                existingReleases?.forEach(r => {
+                    const normalizedDate = new Date(r.release_date).toISOString().split('T')[0];
+                    existingTracks.add(`${r.project_id}_${r.track_name}_${normalizedDate}`);
+                });
+                
+                // Ищем новые треки
+                const newReleases = [];
+                
+                for (const row of validRows) {
+                    const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
+                    let dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
+                    
+                    if (!fullTitle || !dateStr) continue;
+                    
+                    const separatorIndex = fullTitle.indexOf(' - ');
+                    if (separatorIndex === -1) continue;
+                    
+                    const projectNameFromSheet = fullTitle.substring(0, separatorIndex).trim();
+                    const trackName = fullTitle.substring(separatorIndex + 3).trim();
+                    
+                    if (!projectNameFromSheet || !trackName) continue;
+                    
+                    if (!GOOGLE_SHEETS_CONFIG.allowedProjects.includes(projectNameFromSheet)) continue;
+                    
+                    const projectId = projectMap.get(projectNameFromSheet);
+                    if (!projectId) continue;
+                    
+                    // Нормализация даты
+                    let normalizedDateStr;
+                    try {
+                        const cleanDateStr = dateStr.split(/[\s\t]/)[0].trim();
+                        const dateParts = cleanDateStr.split('.');
+                        if (dateParts.length === 3) {
+                            const year = dateParts[2];
+                            const month = dateParts[1].padStart(2, '0');
+                            const day = dateParts[0].padStart(2, '0');
+                            normalizedDateStr = `${year}-${month}-${day}`;
+                        } else {
+                            continue;
+                        }
+                    } catch {
+                        continue;
+                    }
+                    
+                    const trackKey = `${projectId}_${trackName}_${normalizedDateStr}`;
+                    if (!existingTracks.has(trackKey)) {
+                        newReleases.push({
+                            project_id: projectId,
+                            track_name: trackName,
+                            release_date: normalizedDateStr
+                        });
+                    }
+                }
+                
+                // Если есть новые треки - добавляем их
+                if (newReleases.length > 0) {
+                    for (const release of newReleases) {
+                        await supabaseClient.from('releases').insert([release]);
+                    }
+                    
+                    // Обновляем отображение
+                    await loadAllProjects();
+                    
+                    // Показываем уведомление
+                    showNewTracksNotification(newReleases.length);
+                }
+                
+                // Обновляем время последней проверки
+                lastCheckTime = new Date();
+                updateLastCheckTime();
+                
+            } catch (error) {
+                console.error('Ошибка автообновления:', error);
+            } finally {
+                isChecking = false;
+                document.getElementById('autoUpdateStatus').classList.remove('checking');
+            }
+        }
+
+        // === ПОКАЗ УВЕДОМЛЕНИЯ О НОВЫХ ТРЕКАХ ===
+        function showNewTracksNotification(count) {
+            const badge = document.getElementById('newTracksBadge');
+            badge.style.display = 'inline-block';
+            badge.textContent = `🎵 Найдено ${count} новых треков!`;
+            
+            // Мигаем бейджем
+            badge.style.animation = 'bounce 1s ease';
+            
+            // Скрываем через 5 секунд
+            setTimeout(() => {
+                badge.style.display = 'none';
+            }, 5000);
+        }
+
+        // === ОБНОВЛЕНИЕ ВРЕМЕНИ ПОСЛЕДНЕЙ ПРОВЕРКИ ===
+        function updateLastCheckTime() {
+            const now = new Date();
+            const diff = Math.floor((now - lastCheckTime) / 1000);
+            
+            let timeText = 'только что';
+            if (diff > 60) {
+                const minutes = Math.floor(diff / 60);
+                timeText = `${minutes} мин назад`;
+            } else if (diff > 10) {
+                timeText = `${diff} сек назад`;
+            }
+            
+            document.getElementById('lastUpdateTime').innerHTML = `⏱️ Последняя проверка: ${timeText}`;
         }
 
         // === СОЗДАНИЕ НАЧАЛЬНЫХ ПРОЕКТОВ ===
@@ -554,263 +817,8 @@
         window.toggleForm = function() { const form = document.getElementById('projectForm'); form.style.display = (form.style.display === 'none' || !form.style.display) ? 'block' : 'none'; };
         window.onclick = function(event) { const modal = document.getElementById('releaseModal'); if (event.target === modal) closeModal(); };
 
-        // === ФУНКЦИЯ ИМПОРТА ИЗ GOOGLE SHEETS ===
-        async function importOnlyNewFromSheets() {
-            const statusEl = document.getElementById('importStatus');
-            const importBtn = document.getElementById('importFromGoogleBtn');
-            if (!statusEl || !importBtn) return;
-
-            try {
-                statusEl.style.display = 'block';
-                statusEl.innerHTML = '⏳ Загрузка данных из Google Sheets...';
-                importBtn.disabled = true;
-
-                // Загружаем данные из таблицы (начиная со 2-й строки, чтобы пропустить заголовки)
-                const range = encodeURIComponent(`${GOOGLE_SHEETS_CONFIG.sheetName}!A2:J1000`);
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.sheetId}/values/${range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
-                
-                console.log('Загружаем URL:', url);
-                
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
-                
-                const data = await response.json();
-                const googleRows = data.values || [];
-                
-                console.log('Все полученные строки:', googleRows);
-                
-                // Фильтруем строки, где есть данные в нужных колонках
-                const validRows = googleRows.filter(row => 
-                    row.length > GOOGLE_SHEETS_CONFIG.projectNameColumnIndex && 
-                    row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex] && 
-                    row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex].trim() !== '' &&
-                    row.length > GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex &&
-                    row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex] &&
-                    row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex].trim() !== ''
-                );
-                
-                console.log('Валидные строки:', validRows);
-                
-                statusEl.innerHTML = `⏳ Найдено ${validRows.length} записей. Фильтрация...`;
-
-                // Получаем ID проектов из базы
-                const { data: projects, error: projectsError } = await supabaseClient.from('projects').select('id, name');
-                if (projectsError) throw projectsError;
-                
-                const projectMap = new Map();
-                projects?.forEach(p => {
-                    if (GOOGLE_SHEETS_CONFIG.allowedProjects.includes(p.name)) {
-                        projectMap.set(p.name, p.id);
-                        console.log(`Проект найден в БД: ${p.name} -> ID: ${p.id}`);
-                    }
-                });
-                
-                if (projectMap.size === 0) throw new Error('Ни один из разрешенных проектов не найден в базе');
-
-                // Получаем существующие релизы
-                const projectIds = Array.from(projectMap.values());
-                const { data: existingReleases, error: releasesError } = await supabaseClient.from('releases').select('track_name, release_date, project_id').in('project_id', projectIds);
-                if (releasesError) throw releasesError;
-
-                const existingTracks = new Set();
-                existingReleases?.forEach(r => {
-                    const normalizedDate = new Date(r.release_date).toISOString().split('T')[0];
-                    existingTracks.add(`${r.project_id}_${r.track_name}_${normalizedDate}`);
-                });
-
-                // Парсим строки
-                const newReleases = [];
-                const skipped = { noProject: 0, duplicate: 0, invalid: 0, noSeparator: 0 };
-
-                for (const row of validRows) {
-                    const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
-                    let dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
-
-                    console.log('Обработка строки:', { fullTitle, dateStr });
-
-                    if (!fullTitle || !dateStr) {
-                        skipped.invalid++;
-                        continue;
-                    }
-
-                    // Разделяем "Проект - Название трека"
-                    const separatorIndex = fullTitle.indexOf(' - ');
-                    if (separatorIndex === -1) {
-                        skipped.noSeparator++;
-                        continue;
-                    }
-                    
-                    const projectNameFromSheet = fullTitle.substring(0, separatorIndex).trim();
-                    const trackName = fullTitle.substring(separatorIndex + 3).trim();
-
-                    console.log('Разделено:', { projectNameFromSheet, trackName });
-
-                    if (!projectNameFromSheet || !trackName) {
-                        skipped.invalid++;
-                        continue;
-                    }
-
-                    // Проверка разрешенного проекта
-                    if (!GOOGLE_SHEETS_CONFIG.allowedProjects.includes(projectNameFromSheet)) {
-                        skipped.noProject++;
-                        continue;
-                    }
-
-                    const projectId = projectMap.get(projectNameFromSheet);
-                    if (!projectId) {
-                        skipped.noProject++;
-                        continue;
-                    }
-
-                    // Нормализация даты - берем только первую часть до пробела
-                    let normalizedDateStr;
-                    try {
-                        // Берем только дату (до пробела)
-                        const cleanDateStr = dateStr.split(/[\s\t]/)[0].trim();
-                        console.log('Чистая дата:', cleanDateStr);
-                        
-                        // Парсим дату в формате DD.MM.YYYY
-                        const dateParts = cleanDateStr.split('.');
-                        if (dateParts.length === 3) {
-                            // Создаем дату в формате YYYY-MM-DD
-                            const year = dateParts[2];
-                            const month = dateParts[1].padStart(2, '0');
-                            const day = dateParts[0].padStart(2, '0');
-                            normalizedDateStr = `${year}-${month}-${day}`;
-                            console.log('Нормализованная дата:', normalizedDateStr);
-                        } else {
-                            // Если не получилось, пробуем стандартный парсинг
-                            const dateObj = new Date(cleanDateStr);
-                            if (isNaN(dateObj.getTime())) {
-                                skipped.invalid++;
-                                continue;
-                            }
-                            normalizedDateStr = dateObj.toISOString().split('T')[0];
-                        }
-                    } catch {
-                        skipped.invalid++;
-                        continue;
-                    }
-
-                    const trackKey = `${projectId}_${trackName}_${normalizedDateStr}`;
-                    if (existingTracks.has(trackKey)) {
-                        skipped.duplicate++;
-                        continue;
-                    }
-
-                    newReleases.push({
-                        project_id: projectId,
-                        track_name: trackName,
-                        release_date: normalizedDateStr
-                    });
-                }
-
-                console.log('Результаты:', { newReleases, skipped });
-
-                // Показываем результат
-                if (newReleases.length === 0) {
-                    statusEl.innerHTML = `ℹ️ Новых треков не найдено.<br>
-                        📊 Пропущено (не наш проект): ${skipped.noProject}<br>
-                        🔁 Дубликатов: ${skipped.duplicate}<br>
-                        ⚠️ Неверный формат (нет " - "): ${skipped.noSeparator}<br>
-                        ⚙️ Невалидных строк: ${skipped.invalid}`;
-                    statusEl.style.background = '#cce5ff'; 
-                    statusEl.style.color = '#004085';
-                    setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
-                    importBtn.disabled = false;
-                    return;
-                }
-
-                // Группируем для отображения
-                const newByProject = {};
-                newReleases.forEach(r => {
-                    const projectName = Array.from(projectMap.entries()).find(([_, id]) => id === r.project_id)?.[0];
-                    if (!newByProject[projectName]) newByProject[projectName] = [];
-                    newByProject[projectName].push(r);
-                });
-
-                let trackListHtml = '';
-                for (const [project, tracks] of Object.entries(newByProject)) {
-                    trackListHtml += `<div style="margin-top: 8px;"><strong>${project}:</strong></div>`;
-                    tracks.forEach(t => {
-                        trackListHtml += `<div style="margin-left: 15px; font-size: 13px;">• ${escapeHtml(t.track_name)} (${formatDate(t.release_date)})</div>`;
-                    });
-                }
-
-                statusEl.innerHTML = `
-                    ⏳ Найдено <strong>${newReleases.length}</strong> новых треков для импорта:<br>
-                    ${trackListHtml}<br>
-                    <div style="margin-top: 15px;">
-                        <button onclick="confirmImport()" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">✅ Подтвердить импорт</button>
-                        <button onclick="cancelImport()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px;">❌ Отмена</button>
-                    </div>
-                `;
-                statusEl.style.background = '#fff3cd'; 
-                statusEl.style.color = '#856404';
-                window.pendingImportData = newReleases;
-
-            } catch (error) {
-                console.error('Ошибка импорта:', error);
-                statusEl.innerHTML = `❌ Ошибка: ${error.message}`;
-                statusEl.style.background = '#f8d7da'; 
-                statusEl.style.color = '#721c24';
-                importBtn.disabled = false;
-            }
-        }
-
-        // Подтверждение импорта
-        window.confirmImport = async function() {
-            const statusEl = document.getElementById('importStatus');
-            const importBtn = document.getElementById('importFromGoogleBtn');
-            
-            if (!window.pendingImportData || window.pendingImportData.length === 0) {
-                statusEl.innerHTML = '⚠️ Нет данных для импорта';
-                importBtn.disabled = false;
-                return;
-            }
-            
-            try {
-                statusEl.innerHTML = '⏳ Добавление новых треков в базу...';
-                let added = 0, errors = 0;
-                
-                for (const release of window.pendingImportData) {
-                    const { error } = await supabaseClient.from('releases').insert([release]);
-                    if (!error) added++; else { errors++; console.error('Ошибка добавления:', error); }
-                    await new Promise(r => setTimeout(r, 100));
-                }
-                
-                statusEl.innerHTML = `✅ Импорт завершен!<br>📊 Добавлено: ${added}<br>❌ Ошибок: ${errors}`;
-                statusEl.style.background = '#d4edda'; 
-                statusEl.style.color = '#155724';
-                
-                await loadAllProjects();
-                window.pendingImportData = null;
-                
-                setTimeout(() => { statusEl.style.display = 'none'; }, 7000);
-                
-            } catch (error) {
-                statusEl.innerHTML = `❌ Ошибка при добавлении: ${error.message}`;
-                statusEl.style.background = '#f8d7da'; 
-                statusEl.style.color = '#721c24';
-            } finally {
-                importBtn.disabled = false;
-            }
-        };
-
-        // Отмена импорта
-        window.cancelImport = function() {
-            const statusEl = document.getElementById('importStatus');
-            const importBtn = document.getElementById('importFromGoogleBtn');
-            
-            statusEl.innerHTML = '❌ Импорт отменен';
-            statusEl.style.background = '#f8d7da'; 
-            statusEl.style.color = '#721c24';
-            window.pendingImportData = null;
-            
-            setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
-            importBtn.disabled = false;
-        };
-
+        // Обновляем время последней проверки каждую секунду
+        setInterval(updateLastCheckTime, 1000);
     </script>
 </body>
 </html>
