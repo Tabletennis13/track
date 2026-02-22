@@ -493,24 +493,27 @@
         let autoUpdateTimer = null;
         let isChecking = false;
         let lastCheckTime = new Date();
+        let isFirstLoad = true; // Флаг первой загрузки
 
         document.addEventListener('DOMContentLoaded', function() {
             startApp();
-            startAutoUpdate();
-            
-            // Принудительно добавляем Romano Lunario через 3 секунды
-            setTimeout(forceAddRomanoLunario, 3000);
         });
 
         async function startApp() {
             await createInitialProjects();
             await loadAllProjects();
+            
+            // Запускаем автообновление только после первой загрузки
+            startAutoUpdate();
+            
+            // Принудительно добавляем Romano Lunario (если нужно)
+            await forceAddRomanoLunario();
         }
 
         function startAutoUpdate() {
             if (autoUpdateTimer) clearInterval(autoUpdateTimer);
+            // Запускаем проверку каждые 10 секунд, но первую проверку делаем через 10 секунд
             autoUpdateTimer = setInterval(checkForNewTracks, 10000);
-            setTimeout(checkForNewTracks, 2000);
         }
 
         // ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ ROMANO LUNARIO - GHOST
@@ -538,12 +541,6 @@
                 
                 if (existingTracks && existingTracks.length > 0) {
                     console.log('ℹ️ Трек Ghost уже существует в базе');
-                    
-                    // Показываем, какой ID у трека
-                    console.log('Существующий трек:', existingTracks[0]);
-                    
-                    // Принудительно обновляем отображение
-                    await loadAllProjects();
                     return;
                 }
                 
@@ -572,11 +569,17 @@
         }
 
         async function checkForNewTracks() {
-            if (isChecking) return;
+            // Защита от одновременных проверок
+            if (isChecking) {
+                console.log('⏳ Проверка уже выполняется, пропускаем...');
+                return;
+            }
+            
             isChecking = true;
             
             try {
                 document.getElementById('autoUpdateStatus').classList.add('checking');
+                console.log('🔍 Автоматическая проверка новых треков...');
                 
                 const range = encodeURIComponent(`${GOOGLE_SHEETS_CONFIG.sheetName}!A2:J1000`);
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.sheetId}/values/${range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
@@ -669,6 +672,7 @@
                 }
                 
                 if (newReleases.length > 0) {
+                    console.log(`➕ Найдено ${newReleases.length} новых треков`);
                     for (const release of newReleases) {
                         await supabaseClient.from('releases').insert([release]);
                     }
@@ -678,6 +682,8 @@
                     badge.style.display = 'inline-block';
                     badge.textContent = `🎵 +${newReleases.length}`;
                     setTimeout(() => { badge.style.display = 'none'; }, 3000);
+                } else {
+                    console.log('ℹ️ Новых треков не найдено');
                 }
                 
                 lastCheckTime = new Date();
@@ -772,19 +778,6 @@
             const { data: projects } = await supabaseClient.from('projects').select('*');
             if (!projects) return;
             
-            console.log('Проекты в базе:', projects.map(p => p.name));
-            
-            // Для каждого проекта загружаем релизы
-            for (const project of projects) {
-                const { data: releases } = await supabaseClient
-                    .from('releases')
-                    .select('*')
-                    .eq('project_id', project.id)
-                    .order('release_date', { ascending: false });
-                
-                console.log(`Релизы для ${project.name}:`, releases?.map(r => r.track_name));
-            }
-            
             const fixedOrder = ['Placcebo Beats', 'PLENUM', 'Мир детства', 'Звёздная ночь', 'Дом Медитации'];
             const otherProjects = projects.filter(p => !fixedOrder.includes(p.name));
             
@@ -842,8 +835,6 @@
             let lastReleasesHtml = ''; 
             const lastReleasesByDay = [];
             
-            console.log(`Создание карточки для ${project.name}, релизов:`, releases?.length);
-            
             releaseDays.forEach(day => { 
                 const last = getLastReleaseForDay(releases, day); 
                 if (last) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: last }); 
@@ -858,8 +849,6 @@
                     </div>`; 
                 });
                 lastReleasesHtml += '</div>';
-            } else {
-                console.log(`Нет последних релизов для ${project.name}`);
             }
 
             let signalsHtml = '<div class="signals-container">';
