@@ -538,20 +538,26 @@
                 
                 if (existingTracks && existingTracks.length > 0) {
                     console.log('ℹ️ Трек Ghost уже существует в базе');
+                    
+                    // Показываем, какой ID у трека
+                    console.log('Существующий трек:', existingTracks[0]);
+                    
+                    // Принудительно обновляем отображение
+                    await loadAllProjects();
                     return;
                 }
                 
                 // Добавляем трек Ghost с датой 16.03.2026
-                const { error } = await supabaseClient.from('releases').insert([{
+                const { error, data } = await supabaseClient.from('releases').insert([{
                     project_id: romanProject.id,
                     track_name: 'Ghost',
                     release_date: '2026-03-16'
-                }]);
+                }]).select();
                 
                 if (error) {
                     console.error('❌ Ошибка при добавлении Ghost:', error);
                 } else {
-                    console.log('✅ Трек Ghost успешно добавлен!');
+                    console.log('✅ Трек Ghost успешно добавлен!', data);
                     await loadAllProjects();
                     
                     const badge = document.getElementById('newTracksBadge');
@@ -761,8 +767,23 @@
         }
 
         async function loadAllProjects() {
+            console.log('🔄 Загрузка всех проектов...');
+            
             const { data: projects } = await supabaseClient.from('projects').select('*');
             if (!projects) return;
+            
+            console.log('Проекты в базе:', projects.map(p => p.name));
+            
+            // Для каждого проекта загружаем релизы
+            for (const project of projects) {
+                const { data: releases } = await supabaseClient
+                    .from('releases')
+                    .select('*')
+                    .eq('project_id', project.id)
+                    .order('release_date', { ascending: false });
+                
+                console.log(`Релизы для ${project.name}:`, releases?.map(r => r.track_name));
+            }
             
             const fixedOrder = ['Placcebo Beats', 'PLENUM', 'Мир детства', 'Звёздная ночь', 'Дом Медитации'];
             const otherProjects = projects.filter(p => !fixedOrder.includes(p.name));
@@ -796,9 +817,16 @@
             grid.innerHTML = '';
             
             for (const project of finalProjects) {
-                const { data: releases } = await supabaseClient.from('releases').select('*').eq('project_id', project.id).order('release_date', { ascending: false });
+                const { data: releases } = await supabaseClient
+                    .from('releases')
+                    .select('*')
+                    .eq('project_id', project.id)
+                    .order('release_date', { ascending: false });
+                
                 grid.appendChild(createProjectCard(project, releases || []));
             }
+            
+            console.log('✅ Загрузка проектов завершена');
         }
 
         function createProjectCard(project, releases) {
@@ -813,6 +841,9 @@
 
             let lastReleasesHtml = ''; 
             const lastReleasesByDay = [];
+            
+            console.log(`Создание карточки для ${project.name}, релизов:`, releases?.length);
+            
             releaseDays.forEach(day => { 
                 const last = getLastReleaseForDay(releases, day); 
                 if (last) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: last }); 
@@ -827,6 +858,8 @@
                     </div>`; 
                 });
                 lastReleasesHtml += '</div>';
+            } else {
+                console.log(`Нет последних релизов для ${project.name}`);
             }
 
             let signalsHtml = '<div class="signals-container">';
