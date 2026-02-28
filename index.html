@@ -464,26 +464,30 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeWNqZmNqdGRhd3lyeXNncmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MDE5NzAsImV4cCI6MjA4MjE3Nzk3MH0.LEOUMFAd1cz_1e4uawJcaZLPCMqAQHEWM52Oy7fDjsE';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        // Загружаем разрешенные проекты из localStorage или используем начальный список
+        let allowedProjects = JSON.parse(localStorage.getItem('allowedProjects')) || [
+            'Placcebo Beats',
+            'PLENUM',
+            'Мир детства',
+            'Звёздная ночь',
+            'Дом Медитации',
+            'Sergey Ryabov',
+            'Romano Lunario',
+            'IVASHKOV',
+            'Гр. ОКРАИНА',
+            'LOGUNOVA',
+            'Nina Vey',
+            'FLARIX',
+            'Маленькие чудеса'  // Добавлен новый проект
+        ];
+
         const GOOGLE_SHEETS_CONFIG = {
             sheetId: '11gCU7DVGgweld9A-jeo2F2rBh13MVxyQSz1DGb3EVYs',
             sheetName: 'Ответы на форму (1)',
             apiKey: 'AIzaSyB-QjJoeojwGFrzgPOnceY8HfeoB0-7Y_w',
             projectNameColumnIndex: 2,
             releaseDateColumnIndex: 9,
-            allowedProjects: [
-                'Placcebo Beats',
-                'PLENUM',
-                'Мир детства',
-                'Звёздная ночь',
-                'Дом Медитации',
-                'Sergey Ryabov',
-                'Romano Lunario',
-                'IVASHKOV',
-                'Гр. ОКРАИНА',
-                'LOGUNOVA',
-                'Nina Vey',
-                'FLARIX'
-            ]
+            allowedProjects: allowedProjects
         };
 
         let selectedProjectId = null;
@@ -660,7 +664,8 @@
                     { name: 'Гр. ОКРАИНА', image_url: 'https://via.placeholder.com/300x150/20c997/ffffff?text=ГО', release_days: [5] },
                     { name: 'LOGUNOVA', image_url: 'https://via.placeholder.com/300x150/007bff/ffffff?text=LG', release_days: [5] },
                     { name: 'Nina Vey', image_url: 'https://via.placeholder.com/300x150/dc3545/ffffff?text=NV', release_days: [5] },
-                    { name: 'FLARIX', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=FLARIX', release_days: [5] }
+                    { name: 'FLARIX', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=FLARIX', release_days: [5] },
+                    { name: 'Маленькие чудеса', image_url: 'https://via.placeholder.com/300x150/ff6b6b/ffffff?text=МЧ', release_days: [5] }
                 ]);
             }
         }
@@ -852,16 +857,35 @@
             if (!name) { alert('Введите название'); return; }
             if (releaseDays.length === 0) { alert('Выберите дни'); return; }
             
-            await supabaseClient.from('projects').insert([{ 
+            // Добавляем проект в Supabase
+            const { data, error } = await supabaseClient.from('projects').insert([{ 
                 name, 
                 image_url: image || null, 
                 release_days: releaseDays 
-            }]);
+            }]).select();
+            
+            if (error) {
+                console.error('Ошибка при добавлении проекта:', error);
+                alert('Ошибка при добавлении проекта');
+                return;
+            }
+            
+            // Автоматически добавляем проект в разрешенный список
+            if (!GOOGLE_SHEETS_CONFIG.allowedProjects.includes(name)) {
+                GOOGLE_SHEETS_CONFIG.allowedProjects.push(name);
+                // Сохраняем в localStorage для постоянства
+                localStorage.setItem('allowedProjects', JSON.stringify(GOOGLE_SHEETS_CONFIG.allowedProjects));
+                console.log(`✅ Проект "${name}" добавлен в разрешенный список`);
+            }
             
             document.getElementById('projectName').value = ''; 
             document.getElementById('projectImage').value = '';
             document.querySelectorAll('#projectForm input[type="checkbox"]').forEach(cb => cb.checked = false);
+            
             await loadAllProjects();
+            
+            // Показываем уведомление
+            alert(`Проект "${name}" успешно добавлен и будет автоматически импортироваться из Google Sheets`);
         };
         
         window.addRelease = async function() {
