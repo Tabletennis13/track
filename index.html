@@ -151,6 +151,27 @@
             text-overflow: ellipsis;
         }
         
+        .artist-links {
+            margin: 5px 0;
+            font-size: 10px;
+        }
+        
+        .artist-links a {
+            color: #1976d2;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: #e3f2fd;
+            padding: 2px 6px;
+            border-radius: 12px;
+            transition: background 0.2s;
+        }
+        
+        .artist-links a:hover {
+            background: #bbdefb;
+        }
+        
         .release-days {
             font-size: 10px;
             color: #666;
@@ -411,6 +432,10 @@
                 <input type="url" id="projectImage" placeholder="https://...">
             </div>
             <div class="form-group">
+                <label>Ссылка на Яндекс Музыку:</label>
+                <input type="url" id="projectYandexLink" placeholder="https://music.yandex.ru/artist/...">
+            </div>
+            <div class="form-group">
                 <label>Дни релизов:</label>
                 <div class="checkbox-group">
                     <div class="checkbox-item"><input type="checkbox" id="dayMon" value="1"> Пн</div>
@@ -478,8 +503,25 @@
             'LOGUNOVA',
             'Nina Vey',
             'FLARIX',
-            'Маленькие чудеса'  // Добавлен новый проект
+            'Маленькие чудеса'
         ];
+
+        // Словарь ссылок на Яндекс Музыку
+        const YANDEX_MUSIC_LINKS = {
+            'Placcebo Beats': 'https://music.yandex.ru/artist/5087681',
+            'PLENUM': 'https://music.yandex.ru/artist/21004707',
+            'Мир детства': 'https://music.yandex.ru/artist/22312524',
+            'Звёздная ночь': 'https://music.yandex.ru/artist/23702324',
+            'Дом Медитации': 'https://music.yandex.ru/artist/22486944',
+            'Гр. ОКРАИНА': 'https://music.yandex.ru/artist/24949784',
+            'LOGUNOVA': 'https://music.yandex.ru/artist/24793284',
+            'Sergey Ryabov': 'https://music.yandex.ru/artist/23240814',
+            'IVASHKOV': 'https://music.yandex.ru/artist/24494807',
+            'FLARIX': 'https://music.yandex.ru/artist/23899612',
+            'Romano Lunario': 'https://music.yandex.ru/artist/23983561',
+            'Nina Vey': 'https://music.yandex.ru/artist/24535133',
+            'Маленькие чудеса': 'https://music.yandex.ru/artist/25016291'
+        };
 
         const GOOGLE_SHEETS_CONFIG = {
             sheetId: '11gCU7DVGgweld9A-jeo2F2rBh13MVxyQSz1DGb3EVYs',
@@ -653,19 +695,19 @@
             const { data: projects } = await supabaseClient.from('projects').select('*');
             if (!projects || projects.length === 0) {
                 await supabaseClient.from('projects').insert([
-                    { name: 'Placcebo Beats', image_url: 'https://via.placeholder.com/300x150/667eea/ffffff?text=PB', release_days: [2, 5] },
-                    { name: 'PLENUM', image_url: 'https://via.placeholder.com/300x150/764ba2/ffffff?text=PLENUM', release_days: [5] },
-                    { name: 'Мир детства', image_url: 'https://via.placeholder.com/300x150/28a745/ffffff?text=МД', release_days: [5] },
-                    { name: 'Звёздная ночь', image_url: 'https://via.placeholder.com/300x150/ffc107/000000?text=ЗН', release_days: [5] },
-                    { name: 'Дом Медитации', image_url: 'https://via.placeholder.com/300x150/17a2b8/ffffff?text=ДМ', release_days: [5] },
-                    { name: 'Sergey Ryabov', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=SR', release_days: [5] },
-                    { name: 'Romano Lunario', image_url: 'https://via.placeholder.com/300x150/e83e8c/ffffff?text=RL', release_days: [5] },
-                    { name: 'IVASHKOV', image_url: 'https://via.placeholder.com/300x150/fd7e14/ffffff?text=IV', release_days: [5] },
-                    { name: 'Гр. ОКРАИНА', image_url: 'https://via.placeholder.com/300x150/20c997/ffffff?text=ГО', release_days: [5] },
-                    { name: 'LOGUNOVA', image_url: 'https://via.placeholder.com/300x150/007bff/ffffff?text=LG', release_days: [5] },
-                    { name: 'Nina Vey', image_url: 'https://via.placeholder.com/300x150/dc3545/ffffff?text=NV', release_days: [5] },
-                    { name: 'FLARIX', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=FLARIX', release_days: [5] },
-                    { name: 'Маленькие чудеса', image_url: 'https://via.placeholder.com/300x150/ff6b6b/ffffff?text=МЧ', release_days: [5] }
+                    { name: 'Placcebo Beats', image_url: 'https://via.placeholder.com/300x150/667eea/ffffff?text=PB', release_days: [2, 5], yandex_link: YANDEX_MUSIC_LINKS['Placcebo Beats'] },
+                    { name: 'PLENUM', image_url: 'https://via.placeholder.com/300x150/764ba2/ffffff?text=PLENUM', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['PLENUM'] },
+                    { name: 'Мир детства', image_url: 'https://via.placeholder.com/300x150/28a745/ffffff?text=МД', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Мир детства'] },
+                    { name: 'Звёздная ночь', image_url: 'https://via.placeholder.com/300x150/ffc107/000000?text=ЗН', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Звёздная ночь'] },
+                    { name: 'Дом Медитации', image_url: 'https://via.placeholder.com/300x150/17a2b8/ffffff?text=ДМ', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Дом Медитации'] },
+                    { name: 'Sergey Ryabov', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=SR', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Sergey Ryabov'] },
+                    { name: 'Romano Lunario', image_url: 'https://via.placeholder.com/300x150/e83e8c/ffffff?text=RL', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Romano Lunario'] },
+                    { name: 'IVASHKOV', image_url: 'https://via.placeholder.com/300x150/fd7e14/ffffff?text=IV', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['IVASHKOV'] },
+                    { name: 'Гр. ОКРАИНА', image_url: 'https://via.placeholder.com/300x150/20c997/ffffff?text=ГО', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Гр. ОКРАИНА'] },
+                    { name: 'LOGUNOVA', image_url: 'https://via.placeholder.com/300x150/007bff/ffffff?text=LG', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['LOGUNOVA'] },
+                    { name: 'Nina Vey', image_url: 'https://via.placeholder.com/300x150/dc3545/ffffff?text=NV', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Nina Vey'] },
+                    { name: 'FLARIX', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=FLARIX', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['FLARIX'] },
+                    { name: 'Маленькие чудеса', image_url: 'https://via.placeholder.com/300x150/ff6b6b/ffffff?text=МЧ', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Маленькие чудеса'] }
                 ]);
             }
         }
@@ -774,6 +816,13 @@
             let imageHtml = '<div class="project-image" style="background:#ddd;display:flex;align-items:center;justify-content:center;">📷</div>';
             if (project.image_url) imageHtml = `<img src="${project.image_url}" class="project-image">`;
 
+            // Добавляем ссылку на Яндекс Музыку
+            let yandexLinkHtml = '';
+            const yandexLink = project.yandex_link || YANDEX_MUSIC_LINKS[project.name];
+            if (yandexLink) {
+                yandexLinkHtml = `<div class="artist-links"><a href="${yandexLink}" target="_blank" rel="noopener noreferrer">🎵 Яндекс Музыка</a></div>`;
+            }
+
             let releaseDays = project.release_days?.length ? project.release_days : [5];
             let releaseDaysHtml = project.release_days ? `<div class="release-days"><span>${project.release_days.map(d => DAYS_FULL[d]).join(' ')}</span></div>` : '';
 
@@ -814,7 +863,13 @@
             });
             signalsHtml += '</div>';
 
-            card.innerHTML = `${imageHtml}<div class="project-header"><h2>${escapeHtml(project.name)}</h2>${releaseDaysHtml}${lastReleasesHtml}${signalsHtml}</div>`;
+            card.innerHTML = `${imageHtml}<div class="project-header">
+                <h2>${escapeHtml(project.name)}</h2>
+                ${yandexLinkHtml}
+                ${releaseDaysHtml}
+                ${lastReleasesHtml}
+                ${signalsHtml}
+            </div>`;
             return card;
         }
 
@@ -844,6 +899,7 @@
         window.addProject = async function() {
             const name = document.getElementById('projectName').value.trim(); 
             const image = document.getElementById('projectImage').value.trim();
+            const yandexLink = document.getElementById('projectYandexLink').value.trim();
             const releaseDays = [];
             
             if (document.getElementById('dayMon').checked) releaseDays.push(1);
@@ -861,7 +917,8 @@
             const { data, error } = await supabaseClient.from('projects').insert([{ 
                 name, 
                 image_url: image || null, 
-                release_days: releaseDays 
+                release_days: releaseDays,
+                yandex_link: yandexLink || null
             }]).select();
             
             if (error) {
@@ -880,6 +937,7 @@
             
             document.getElementById('projectName').value = ''; 
             document.getElementById('projectImage').value = '';
+            document.getElementById('projectYandexLink').value = '';
             document.querySelectorAll('#projectForm input[type="checkbox"]').forEach(cb => cb.checked = false);
             
             await loadAllProjects();
