@@ -548,6 +548,49 @@
             await createInitialProjects();
             await loadAllProjects();
             startAutoUpdate();
+            
+            // Проверяем треки IVASHKOV через 2 секунды
+            setTimeout(checkIVASHKOVTracks, 2000);
+        }
+
+        // ВРЕМЕННАЯ ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ТРЕКОВ IVASHKOV
+        async function checkIVASHKOVTracks() {
+            console.log('🔍 ПРОВЕРКА ТРЕКОВ IVASHKOV:');
+            
+            // Находим ID проекта IVASHKOV
+            const { data: projects } = await supabaseClient.from('projects').select('id, name').eq('name', 'IVASHKOV');
+            if (!projects || projects.length === 0) {
+                console.log('❌ Проект IVASHKOV не найден в Supabase');
+                return;
+            }
+            
+            const projectId = projects[0].id;
+            console.log(`✅ ID проекта IVASHKOV: ${projectId}`);
+            
+            // Получаем все треки IVASHKOV
+            const { data: releases } = await supabaseClient
+                .from('releases')
+                .select('*')
+                .eq('project_id', projectId)
+                .order('release_date', { ascending: false });
+            
+            console.log(`📊 Найдено треков IVASHKOV: ${releases?.length || 0}`);
+            
+            if (releases && releases.length > 0) {
+                releases.forEach((r, i) => {
+                    console.log(`   ${i+1}. "${r.track_name}" (${r.release_date})`);
+                });
+                
+                // Проверяем, есть ли "Старая Москва"
+                const starayaMoskva = releases.find(r => r.track_name.includes('Старая Москва'));
+                if (starayaMoskva) {
+                    console.log(`✅ Трек "Старая Москва" найден в базе! ID: ${starayaMoskva.id}`);
+                } else {
+                    console.log('❌ Трек "Старая Москва" НЕ найден в базе!');
+                }
+            } else {
+                console.log('❌ Треков нет в базе данных!');
+            }
         }
 
         function startAutoUpdate() {
@@ -584,12 +627,10 @@
                 const { data: projects } = await supabaseClient.from('projects').select('id, name');
                 console.log('📋 Проекты в Supabase:', projects.map(p => `"${p.name}"`).join(', '));
                 
-                // Создаем карту проектов (с разными вариантами написания)
+                // Создаем карту проектов
                 const projectMap = new Map();
-                const projectLowerMap = new Map();
                 projects?.forEach(p => {
                     projectMap.set(p.name, p.id);
-                    projectLowerMap.set(p.name.toLowerCase(), p.id);
                 });
                 
                 // Получаем существующие треки
@@ -631,33 +672,27 @@
                     
                     // Ищем ID проекта
                     let projectId = null;
-                    let matchedProjectName = null;
                     
-                    // 1. Точное совпадение
+                    // Проверяем все варианты
                     if (projectMap.has(projectNameFromSheet)) {
                         projectId = projectMap.get(projectNameFromSheet);
-                        matchedProjectName = projectNameFromSheet;
                         console.log(`  ✅ Точное совпадение: "${projectNameFromSheet}"`);
-                    }
-                    // 2. Без учета регистра
-                    else if (projectLowerMap.has(projectNameFromSheet.toLowerCase())) {
-                        projectId = projectLowerMap.get(projectNameFromSheet.toLowerCase());
-                        // Находим оригинальное название
-                        for (let p of projects) {
-                            if (p.id === projectId) {
-                                matchedProjectName = p.name;
+                    } else {
+                        // Пробуем найти без учета регистра
+                        for (let [name, id] of projectMap.entries()) {
+                            if (name.toLowerCase() === projectNameFromSheet.toLowerCase()) {
+                                projectId = id;
+                                console.log(`  ✅ Совпадение без учета регистра: "${name}"`);
                                 break;
                             }
                         }
-                        console.log(`  ✅ Совпадение без учета регистра: "${projectNameFromSheet}" -> "${matchedProjectName}"`);
                     }
-                    // 3. Специальная проверка для IVASHKOV
-                    else if (projectNameFromSheet.toUpperCase().includes('IVASHKOV') || 
-                             projectNameFromSheet.toLowerCase().includes('ивашков')) {
+                    
+                    // Специально для IVASHKOV
+                    if (!projectId && projectNameFromSheet.toUpperCase().includes('IVASHKOV')) {
                         const ivashkovProject = projects.find(p => p.name === 'IVASHKOV');
                         if (ivashkovProject) {
                             projectId = ivashkovProject.id;
-                            matchedProjectName = 'IVASHKOV';
                             console.log(`  ✅ Найдено по частичному совпадению: IVASHKOV`);
                         }
                     }
@@ -673,14 +708,13 @@
                     if (!existingTracks.has(trackKey)) {
                         console.log(`  🆕 НОВЫЙ ТРЕК! Будет добавлен`);
                         
-                        // Пытаемся найти дату в колонке B (индекс 1)
-                        let releaseDate = new Date().toISOString().split('T')[0]; // Сегодня по умолчанию
+                        // Дата из колонки B
+                        let releaseDate = new Date().toISOString().split('T')[0];
                         
                         if (row[1]) {
                             const dateStr = row[1].trim();
                             console.log(`  📅 Дата из таблицы: "${dateStr}"`);
                             
-                            // Пробуем распарсить дату в формате ДД.ММ.ГГГГ
                             const match = dateStr.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
                             if (match) {
                                 const day = match[1].padStart(2, '0');
@@ -688,11 +722,7 @@
                                 const year = match[3];
                                 releaseDate = `${year}-${month}-${day}`;
                                 console.log(`  ✅ Дата преобразована: ${releaseDate}`);
-                            } else {
-                                console.log(`  ⚠ Не удалось распарсить дату, использую сегодня: ${releaseDate}`);
                             }
-                        } else {
-                            console.log(`  📅 Дата не указана, использую сегодня: ${releaseDate}`);
                         }
                         
                         newReleases.push({
@@ -708,10 +738,6 @@
                 // Добавляем новые треки
                 if (newReleases.length > 0) {
                     console.log(`\n➕ Найдено ${newReleases.length} новых треков:`);
-                    newReleases.forEach(r => {
-                        const project = projects.find(p => p.id === r.project_id);
-                        console.log(`   - ${project?.name}: "${r.track_name}" (${r.release_date})`);
-                    });
                     
                     let added = 0;
                     for (const release of newReleases) {
@@ -739,7 +765,7 @@
                 lastCheckTime = new Date();
                 
             } catch (error) {
-                console.error('❌ Ошибка в checkForNewTracks:', error);
+                console.error('❌ Ошибка:', error);
             } finally {
                 isChecking = false;
                 document.getElementById('autoUpdateStatus').classList.remove('checking');
@@ -869,6 +895,14 @@
                     .eq('project_id', project.id)
                     .order('release_date', { ascending: false });
                 
+                // ОТЛАДКА: выводим треки для IVASHKOV
+                if (project.name === 'IVASHKOV') {
+                    console.log(`📊 Загрузка карточки IVASHKOV, треков: ${releases?.length || 0}`);
+                    if (releases && releases.length > 0) {
+                        console.log('   Треки:', releases.map(r => `"${r.track_name}"`).join(', '));
+                    }
+                }
+                
                 grid.appendChild(createProjectCard(project, releases || []));
             }
             
@@ -876,6 +910,8 @@
         }
 
         function createProjectCard(project, releases) {
+            console.log(`📊 Создание карточки для ${project.name}, треков: ${releases.length}`);
+            
             const card = document.createElement('div'); 
             card.className = 'project-card';
             
@@ -908,6 +944,9 @@
                     </div>`; 
                 });
                 lastReleasesHtml += '</div>';
+            } else {
+                // Если нет последних релизов, показываем заглушку
+                lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀 Нет релизов</div></div>';
             }
 
             let signalsHtml = '<div class="signals-container">';
@@ -924,6 +963,13 @@
                             </div>
                         `;
                     }
+                } else {
+                    signalsHtml += `
+                        <div class="next-track-signal signal-yellow">
+                            <div class="signal-title">📝 Нет данных</div>
+                            <div class="signal-deadline">--</div>
+                        </div>
+                    `;
                 }
             });
             signalsHtml += '</div>';
@@ -1014,14 +1060,19 @@
             if (!track || !date) { alert('Заполните поля'); return; }
             if (!selectedProjectId) { alert('Ошибка'); return; }
             
-            await supabaseClient.from('releases').insert([{ 
+            const { error } = await supabaseClient.from('releases').insert([{ 
                 project_id: selectedProjectId, 
                 track_name: track, 
                 release_date: date 
             }]);
             
-            closeModal(); 
-            await loadAllProjects();
+            if (error) {
+                console.error('Ошибка при добавлении релиза:', error);
+                alert('Ошибка при добавлении релиза');
+            } else {
+                closeModal(); 
+                await loadAllProjects();
+            }
         };
         
         window.toggleForm = function() { 
