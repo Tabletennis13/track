@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>Release Tracker - VHQ Music</title>
     <style>
-        /* --- СТИЛИ (без изменений) --- */
+        /* --- СТИЛИ --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
@@ -576,6 +576,8 @@
                 const data = await response.json();
                 const googleRows = data.values || [];
                 
+                console.log(`📊 Получено строк из Google Sheets: ${googleRows.length}`);
+                
                 const validRows = googleRows.filter(row => 
                     row.length > GOOGLE_SHEETS_CONFIG.projectNameColumnIndex && 
                     row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex] && 
@@ -585,12 +587,16 @@
                     row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex].trim() !== ''
                 );
                 
+                console.log(`✅ Валидных строк с названием и датой: ${validRows.length}`);
+                
                 const { data: projects } = await supabaseClient.from('projects').select('id, name');
                 
                 const projectMap = new Map();
                 projects?.forEach(p => {
                     projectMap.set(p.name, p.id);
                 });
+                
+                console.log('📋 Проекты в Supabase:', Array.from(projectMap.keys()));
                 
                 const projectIds = Array.from(projectMap.values());
                 const { data: existingReleases } = await supabaseClient.from('releases').select('track_name, release_date, project_id').in('project_id', projectIds);
@@ -601,33 +607,54 @@
                     existingTracks.add(`${r.project_id}_${r.track_name}_${normalizedDate}`);
                 });
                 
+                console.log(`💿 Существующих треков в базе: ${existingTracks.size}`);
+                
                 const newReleases = [];
                 
                 for (const row of validRows) {
                     const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
                     const dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
                     
+                    console.log('Обрабатываю строку:', fullTitle, dateStr);
+                    
                     const separatorIndex = fullTitle.indexOf(' - ');
-                    if (separatorIndex === -1) continue;
+                    if (separatorIndex === -1) {
+                        console.log('❌ Нет разделителя " - " в строке:', fullTitle);
+                        continue;
+                    }
                     
                     const projectNameFromSheet = fullTitle.substring(0, separatorIndex).trim();
                     const trackName = fullTitle.substring(separatorIndex + 3).trim();
                     
-                    if (!projectNameFromSheet || !trackName) continue;
+                    if (!projectNameFromSheet || !trackName) {
+                        console.log('❌ Пустое имя проекта или трека');
+                        continue;
+                    }
+                    
+                    console.log(`📝 Проект из sheets: "${projectNameFromSheet}", трек: "${trackName}"`);
                     
                     // Проверяем, разрешен ли проект
                     let matchedProject = null;
                     for (const allowed of GOOGLE_SHEETS_CONFIG.allowedProjects) {
                         if (allowed.toLowerCase() === projectNameFromSheet.toLowerCase()) {
                             matchedProject = allowed;
+                            console.log(`✅ Найдено совпадение: "${allowed}" = "${projectNameFromSheet}"`);
                             break;
                         }
                     }
                     
-                    if (!matchedProject) continue;
+                    if (!matchedProject) {
+                        console.log(`❌ Проект "${projectNameFromSheet}" не в списке разрешенных`);
+                        continue;
+                    }
                     
                     const projectId = projectMap.get(matchedProject);
-                    if (!projectId) continue;
+                    if (!projectId) {
+                        console.log(`❌ Проект "${matchedProject}" не найден в Supabase`);
+                        continue;
+                    }
+                    
+                    console.log(`✅ Проект найден в Supabase, ID: ${projectId}`);
                     
                     // Нормализация даты
                     let normalizedDateStr;
@@ -639,29 +666,44 @@
                             const month = dateParts[1].padStart(2, '0');
                             const day = dateParts[0].padStart(2, '0');
                             normalizedDateStr = `${year}-${month}-${day}`;
+                            console.log(`📅 Дата преобразована: ${dateStr} -> ${normalizedDateStr}`);
                         } else {
+                            console.log(`❌ Неверный формат даты: ${dateStr}`);
                             continue;
                         }
-                    } catch {
+                    } catch (e) {
+                        console.log(`❌ Ошибка парсинга даты: ${dateStr}`, e);
                         continue;
                     }
                     
                     const trackKey = `${projectId}_${trackName}_${normalizedDateStr}`;
                     
                     if (!existingTracks.has(trackKey)) {
+                        console.log(`🆕 Новый трек найден! Проект: ${matchedProject}, трек: ${trackName}, дата: ${normalizedDateStr}`);
                         newReleases.push({
                             project_id: projectId,
                             track_name: trackName,
                             release_date: normalizedDateStr
                         });
+                    } else {
+                        console.log(`⏺ Трек уже существует: ${trackName}`);
                     }
                 }
                 
                 if (newReleases.length > 0) {
                     console.log(`➕ Найдено ${newReleases.length} новых треков`);
+                    
+                    // Добавляем треки по одному для лучшей обработки ошибок
                     for (const release of newReleases) {
-                        await supabaseClient.from('releases').insert([release]);
+                        console.log(`Добавляю трек:`, release);
+                        const { data, error } = await supabaseClient.from('releases').insert([release]);
+                        if (error) {
+                            console.error('Ошибка при добавлении трека:', error);
+                        } else {
+                            console.log('✅ Трек успешно добавлен');
+                        }
                     }
+                    
                     await loadAllProjects();
                     
                     const badge = document.getElementById('newTracksBadge');
@@ -675,7 +717,7 @@
                 lastCheckTime = new Date();
                 
             } catch (error) {
-                console.error('Ошибка:', error);
+                console.error('Ошибка в checkForNewTracks:', error);
             } finally {
                 isChecking = false;
                 document.getElementById('autoUpdateStatus').classList.remove('checking');
@@ -694,6 +736,7 @@
         async function createInitialProjects() {
             const { data: projects } = await supabaseClient.from('projects').select('*');
             if (!projects || projects.length === 0) {
+                console.log('Создаю начальные проекты...');
                 await supabaseClient.from('projects').insert([
                     { name: 'Placcebo Beats', image_url: 'https://via.placeholder.com/300x150/667eea/ffffff?text=PB', release_days: [2, 5], yandex_link: YANDEX_MUSIC_LINKS['Placcebo Beats'] },
                     { name: 'PLENUM', image_url: 'https://via.placeholder.com/300x150/764ba2/ffffff?text=PLENUM', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['PLENUM'] },
@@ -709,6 +752,7 @@
                     { name: 'FLARIX', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=FLARIX', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['FLARIX'] },
                     { name: 'Маленькие чудеса', image_url: 'https://via.placeholder.com/300x150/ff6b6b/ffffff?text=МЧ', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Маленькие чудеса'] }
                 ]);
+                console.log('✅ Начальные проекты созданы');
             }
         }
 
@@ -835,7 +879,7 @@
             });
             
             if (lastReleasesByDay.length) {
-                lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀</div>';
+                lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀 Последние релизы</div>';
                 lastReleasesByDay.slice(0,2).forEach(item => { 
                     lastReleasesHtml += `<div class="last-release-item">
                         <span>${escapeHtml(item.release.track_name).substring(0,12)}${escapeHtml(item.release.track_name).length>12?'...':''}<span class="release-day-badge">${item.dayName}</span></span>
@@ -854,8 +898,8 @@
                         const daysDisplay = info.daysLeft % 1 === 0 ? info.daysLeft : info.daysLeft.toFixed(1);
                         signalsHtml += `
                             <div class="next-track-signal ${info.status.class}">
-                                <div class="signal-title">${info.status.emoji} <span class="signal-day">${info.dayName}</span></div>
-                                <div class="signal-deadline">${info.daysLeft < 0 ? '🔥' : daysDisplay + 'д'}</div>
+                                <div class="signal-title">${info.status.emoji} Следующий <span class="signal-day">${info.dayName}</span></div>
+                                <div class="signal-deadline">${info.daysLeft < 0 ? '🔥 Дедлайн прошёл' : daysDisplay + ' дн'}</div>
                             </div>
                         `;
                     }
