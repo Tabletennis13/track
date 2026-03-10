@@ -654,21 +654,14 @@
                     if (!row[2]) continue;
                     
                     const fullText = row[2].trim();
-                    console.log(`\n📌 Строка ${i+2}: "${fullText}"`);
                     
                     // Ищем дефис с пробелами
-                    if (!fullText.includes(' - ')) {
-                        console.log('  ➡ Нет разделителя " - ", пропускаем');
-                        continue;
-                    }
+                    if (!fullText.includes(' - ')) continue;
                     
                     // Разделяем на проект и трек
                     const parts = fullText.split(' - ');
                     const projectNameFromSheet = parts[0].trim();
                     const trackName = parts.slice(1).join(' - ').trim();
-                    
-                    console.log(`  📋 Проект из таблицы: "${projectNameFromSheet}"`);
-                    console.log(`  🎵 Трек: "${trackName}"`);
                     
                     // Ищем ID проекта
                     let projectId = null;
@@ -676,13 +669,11 @@
                     // Проверяем все варианты
                     if (projectMap.has(projectNameFromSheet)) {
                         projectId = projectMap.get(projectNameFromSheet);
-                        console.log(`  ✅ Точное совпадение: "${projectNameFromSheet}"`);
                     } else {
                         // Пробуем найти без учета регистра
                         for (let [name, id] of projectMap.entries()) {
                             if (name.toLowerCase() === projectNameFromSheet.toLowerCase()) {
                                 projectId = id;
-                                console.log(`  ✅ Совпадение без учета регистра: "${name}"`);
                                 break;
                             }
                         }
@@ -693,35 +684,26 @@
                         const ivashkovProject = projects.find(p => p.name === 'IVASHKOV');
                         if (ivashkovProject) {
                             projectId = ivashkovProject.id;
-                            console.log(`  ✅ Найдено по частичному совпадению: IVASHKOV`);
                         }
                     }
                     
-                    if (!projectId) {
-                        console.log(`  ❌ Проект не найден в Supabase`);
-                        continue;
-                    }
+                    if (!projectId) continue;
                     
                     // Проверяем, есть ли уже такой трек
                     const trackKey = `${projectId}_${trackName}`;
                     
                     if (!existingTracks.has(trackKey)) {
-                        console.log(`  🆕 НОВЫЙ ТРЕК! Будет добавлен`);
-                        
                         // Дата из колонки B
                         let releaseDate = new Date().toISOString().split('T')[0];
                         
                         if (row[1]) {
                             const dateStr = row[1].trim();
-                            console.log(`  📅 Дата из таблицы: "${dateStr}"`);
-                            
                             const match = dateStr.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
                             if (match) {
                                 const day = match[1].padStart(2, '0');
                                 const month = match[2].padStart(2, '0');
                                 const year = match[3];
                                 releaseDate = `${year}-${month}-${day}`;
-                                console.log(`  ✅ Дата преобразована: ${releaseDate}`);
                             }
                         }
                         
@@ -730,8 +712,6 @@
                             track_name: trackName,
                             release_date: releaseDate
                         });
-                    } else {
-                        console.log(`  ⏺ Трек уже существует в базе`);
                     }
                 }
                 
@@ -742,9 +722,7 @@
                     let added = 0;
                     for (const release of newReleases) {
                         const { error } = await supabaseClient.from('releases').insert([release]);
-                        if (error) {
-                            console.error('❌ Ошибка при добавлении:', error);
-                        } else {
+                        if (!error) {
                             added++;
                             console.log(`✅ Добавлен: ${release.track_name}`);
                         }
@@ -758,8 +736,6 @@
                         badge.textContent = `🎵 +${added}`;
                         setTimeout(() => { badge.style.display = 'none'; }, 3000);
                     }
-                } else {
-                    console.log('\nℹ️ Новых треков не найдено');
                 }
                 
                 lastCheckTime = new Date();
@@ -806,7 +782,17 @@
 
         function getLastReleaseForDay(releases, targetDay) {
             if (!releases || releases.length === 0) return null;
-            return releases.filter(r => new Date(r.release_date).getDay() === targetDay).sort((a, b) => new Date(b.release_date) - new Date(a.release_date))[0] || null;
+            
+            // Сортируем по дате (новые сначала)
+            const sortedReleases = [...releases].sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
+            
+            // Если указан конкретный день, фильтруем по нему
+            if (targetDay !== undefined) {
+                return sortedReleases.find(r => new Date(r.release_date).getDay() === targetDay) || null;
+            }
+            
+            // Если день не указан, возвращаем самый новый
+            return sortedReleases[0] || null;
         }
         
         function getNextReleaseDate(fromDate, targetDay) {
@@ -899,7 +885,7 @@
                 if (project.name === 'IVASHKOV') {
                     console.log(`📊 Загрузка карточки IVASHKOV, треков: ${releases?.length || 0}`);
                     if (releases && releases.length > 0) {
-                        console.log('   Треки:', releases.map(r => `"${r.track_name}"`).join(', '));
+                        console.log('   Треки:', releases.map(r => `"${r.track_name}" (${r.release_date})`).join(', '));
                     }
                 }
                 
@@ -909,6 +895,7 @@
             console.log('✅ Загрузка проектов завершена');
         }
 
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ СОЗДАНИЯ КАРТОЧКИ
         function createProjectCard(project, releases) {
             console.log(`📊 Создание карточки для ${project.name}, треков: ${releases.length}`);
             
@@ -925,35 +912,38 @@
             }
 
             let releaseDays = project.release_days?.length ? project.release_days : [5];
-            let releaseDaysHtml = project.release_days ? `<div class="release-days"><span>${project.release_days.map(d => DAYS_FULL[d]).join(' ')}</span></div>` : '';
+            let releaseDaysHtml = `<div class="release-days"><span>${releaseDays.map(d => DAYS_FULL[d]).join(' ')}</span></div>`;
 
-            let lastReleasesHtml = ''; 
-            const lastReleasesByDay = [];
+            // ПОСЛЕДНИЕ РЕЛИЗЫ - показываем все треки, отсортированные по дате
+            let lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀 Последние релизы</div>';
             
-            releaseDays.forEach(day => { 
-                const last = getLastReleaseForDay(releases, day); 
-                if (last) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: last }); 
-            });
-            
-            if (lastReleasesByDay.length) {
-                lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀 Последние релизы</div>';
-                lastReleasesByDay.slice(0,2).forEach(item => { 
+            if (releases && releases.length > 0) {
+                // Берем последние 3 трека (не фильтруем по дням)
+                const recentReleases = releases.slice(0, 3);
+                
+                recentReleases.forEach(release => {
+                    const releaseDate = new Date(release.release_date);
+                    const dayName = DAYS_FULL[releaseDate.getDay()];
+                    
                     lastReleasesHtml += `<div class="last-release-item">
-                        <span>${escapeHtml(item.release.track_name).substring(0,12)}${escapeHtml(item.release.track_name).length>12?'...':''}<span class="release-day-badge">${item.dayName}</span></span>
-                        <span>${formatDate(item.release.release_date)}</span>
-                    </div>`; 
+                        <span>${escapeHtml(release.track_name).substring(0,15)}${escapeHtml(release.track_name).length>15?'...':''}<span class="release-day-badge">${dayName}</span></span>
+                        <span>${formatDate(release.release_date)}</span>
+                    </div>`;
                 });
-                lastReleasesHtml += '</div>';
             } else {
-                // Если нет последних релизов, показываем заглушку
-                lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀 Нет релизов</div></div>';
+                lastReleasesHtml += '<div class="last-release-item">Нет релизов</div>';
             }
+            lastReleasesHtml += '</div>';
 
+            // СИГНАЛЫ - показываем для каждого дня релиза
             let signalsHtml = '<div class="signals-container">';
-            releaseDays.slice(0,2).forEach(day => {
-                const last = getLastReleaseForDay(releases, day);
-                if (last) {
-                    const info = calculateDeadlineForDay(last.release_date, day);
+            
+            releaseDays.slice(0, 2).forEach(day => {
+                // Ищем последний релиз для этого дня
+                const lastForDay = releases.find(r => new Date(r.release_date).getDay() === day);
+                
+                if (lastForDay) {
+                    const info = calculateDeadlineForDay(lastForDay.release_date, day);
                     if (info) {
                         const daysDisplay = info.daysLeft % 1 === 0 ? info.daysLeft : info.daysLeft.toFixed(1);
                         signalsHtml += `
@@ -966,7 +956,7 @@
                 } else {
                     signalsHtml += `
                         <div class="next-track-signal signal-yellow">
-                            <div class="signal-title">📝 Нет данных</div>
+                            <div class="signal-title">📝 Нет данных <span class="signal-day">${DAYS_FULL[day]}</span></div>
                             <div class="signal-deadline">--</div>
                         </div>
                     `;
@@ -981,6 +971,7 @@
                 ${lastReleasesHtml}
                 ${signalsHtml}
             </div>`;
+            
             return card;
         }
 
