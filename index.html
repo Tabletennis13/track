@@ -776,9 +776,17 @@
             }
         }
 
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ - возвращает только последний трек для каждого дня
         function getLastReleaseForDay(releases, targetDay) {
             if (!releases || releases.length === 0) return null;
-            return releases.filter(r => new Date(r.release_date).getDay() === targetDay).sort((a, b) => new Date(b.release_date) - new Date(a.release_date))[0] || null;
+            
+            // Фильтруем по дню и сортируем по дате (новые сверху)
+            const dayReleases = releases
+                .filter(r => new Date(r.release_date).getDay() === targetDay)
+                .sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
+            
+            // Возвращаем ТОЛЬКО САМЫЙ ПОСЛЕДНИЙ трек для этого дня
+            return dayReleases.length > 0 ? dayReleases[0] : null;
         }
         
         function getNextReleaseDate(fromDate, targetDay) {
@@ -893,13 +901,14 @@
             let lastReleasesHtml = ''; 
             const lastReleasesByDay = [];
             
+            // Для каждого дня релиза берем ТОЛЬКО ПОСЛЕДНИЙ трек
             releaseDays.forEach(day => { 
                 const last = getLastReleaseForDay(releases, day); 
                 if (last) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: last }); 
             });
             
             if (lastReleasesByDay.length) {
-                lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀</div>';
+                lastReleasesHtml = '<div class="last-releases"><div class="last-releases-title">📀 Последние релизы</div>';
                 lastReleasesByDay.slice(0,2).forEach(item => { 
                     lastReleasesHtml += `<div class="last-release-item">
                         <span>${escapeHtml(item.release.track_name).substring(0,12)}${escapeHtml(item.release.track_name).length>12?'...':''}<span class="release-day-badge">${item.dayName}</span></span>
