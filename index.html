@@ -539,8 +539,8 @@
         let autoUpdateTimer = null;
         let isChecking = false;
         let lastCheckTime = new Date();
+        let checkIntervalSeconds = 10; // Интервал проверки в секундах
 
-        // Включаем подробное логирование
         const DEBUG = true;
 
         function log(...args) {
@@ -561,10 +561,15 @@
 
         function startAutoUpdate() {
             if (autoUpdateTimer) clearInterval(autoUpdateTimer);
-            autoUpdateTimer = setInterval(checkForNewTracks, 10000);
+            // Запускаем интервал с фиксированной задержкой
+            autoUpdateTimer = setInterval(() => {
+                checkForNewTracks();
+            }, checkIntervalSeconds * 1000);
+            log(`✅ Автообновление запущено с интервалом ${checkIntervalSeconds} секунд`);
         }
 
         async function checkForNewTracks() {
+            // Защита от одновременных вызовов
             if (isChecking) {
                 log('⏳ Проверка уже выполняется, пропускаем...');
                 return;
@@ -573,7 +578,9 @@
             isChecking = true;
             
             try {
-                document.getElementById('autoUpdateStatus').classList.add('checking');
+                const statusElement = document.getElementById('autoUpdateStatus');
+                if (statusElement) statusElement.classList.add('checking');
+                
                 log('🔍 АВТОМАТИЧЕСКАЯ ПРОВЕРКА НОВЫХ ТРЕКОВ...');
                 
                 const range = encodeURIComponent(`${GOOGLE_SHEETS_CONFIG.sheetName}!A2:J1000`);
@@ -587,14 +594,6 @@
                 const googleRows = data.values || [];
                 log(`📊 ПОЛУЧЕНО СТРОК ИЗ ТАБЛИЦЫ: ${googleRows.length}`);
                 
-                // Покажем первые 3 строки для примера
-                if (googleRows.length > 0) {
-                    log('📋 Пример первых строк:');
-                    for (let i = 0; i < Math.min(3, googleRows.length); i++) {
-                        log(`   Строка ${i+1}:`, googleRows[i]);
-                    }
-                }
-                
                 const validRows = googleRows.filter(row => 
                     row.length > GOOGLE_SHEETS_CONFIG.projectNameColumnIndex && 
                     row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex] && 
@@ -606,11 +605,13 @@
                 log(`✅ ВАЛИДНЫХ СТРОК (есть название и дата): ${validRows.length}`);
                 
                 const { data: projects } = await supabaseClient.from('projects').select('id, name');
-                log('📁 ПРОЕКТЫ В БАЗЕ:');
-                projects?.forEach(p => log(`   - "${p.name}" (id: ${p.id})`));
+                if (!projects || projects.length === 0) {
+                    log('⚠️ Нет проектов в базе данных');
+                    return;
+                }
                 
                 const projectMap = new Map();
-                projects?.forEach(p => {
+                projects.forEach(p => {
                     projectMap.set(p.name, p.id);
                 });
                 
@@ -626,61 +627,31 @@
                 
                 const newReleases = [];
                 
-                log('\n🔍 ДЕТАЛЬНЫЙ РАЗБОР КАЖДОЙ СТРОКИ:');
-                
                 for (const [index, row] of validRows.entries()) {
                     const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
                     const dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
                     
-                    log(`\n--- СТРОКА ${index + 1} ---`);
-                    log(`Полное название: "${fullTitle}"`);
-                    log(`Дата: "${dateStr}"`);
-                    
                     const separatorIndex = fullTitle.indexOf(' - ');
-                    if (separatorIndex === -1) {
-                        log('⏭️ НЕТ РАЗДЕЛИТЕЛЯ " - ", пропускаем');
-                        continue;
-                    }
+                    if (separatorIndex === -1) continue;
                     
                     const projectNameFromSheet = fullTitle.substring(0, separatorIndex).trim();
                     const trackName = fullTitle.substring(separatorIndex + 3).trim();
                     
-                    log(`Проект из таблицы: "${projectNameFromSheet}"`);
-                    log(`Название трека: "${trackName}"`);
-                    
-                    if (!projectNameFromSheet || !trackName) {
-                        log('⏭️ Пустое название проекта или трека, пропускаем');
-                        continue;
-                    }
-                    
-                    // Проверяем, разрешен ли проект (точное сравнение)
-                    log('🔎 Ищем совпадение в разрешенных проектах:', GOOGLE_SHEETS_CONFIG.allowedProjects);
+                    if (!projectNameFromSheet || !trackName) continue;
                     
                     let matchedProject = null;
                     for (const allowed of GOOGLE_SHEETS_CONFIG.allowedProjects) {
-                        log(`   Сравниваем "${allowed}" с "${projectNameFromSheet}":`, allowed === projectNameFromSheet ? 'СОВПАДЕНИЕ!' : 'нет');
                         if (allowed === projectNameFromSheet) {
                             matchedProject = allowed;
                             break;
                         }
                     }
                     
-                    if (!matchedProject) {
-                        log(`❌ Проект "${projectNameFromSheet}" НЕ В СПИСКЕ РАЗРЕШЕННЫХ`);
-                        continue;
-                    }
-                    
-                    log(`✅ Проект найден в разрешенных: "${matchedProject}"`);
+                    if (!matchedProject) continue;
                     
                     const projectId = projectMap.get(matchedProject);
-                    if (!projectId) {
-                        log(`❌ Проект "${matchedProject}" есть в разрешенных, но НЕТ В БАЗЕ SUPABASE`);
-                        continue;
-                    }
+                    if (!projectId) continue;
                     
-                    log(`✅ ID проекта в Supabase: ${projectId}`);
-                    
-                    // Нормализация даты
                     let normalizedDateStr;
                     try {
                         const cleanDateStr = dateStr.split(/[\s\t]/)[0].trim();
@@ -690,22 +661,16 @@
                             const month = dateParts[1].padStart(2, '0');
                             const day = dateParts[0].padStart(2, '0');
                             normalizedDateStr = `${year}-${month}-${day}`;
-                            log(`📅 Нормализованная дата: ${normalizedDateStr}`);
                         } else {
-                            log(`❌ Неверный формат даты: ${dateStr}`);
                             continue;
                         }
                     } catch (e) {
-                        log(`❌ Ошибка парсинга даты: ${e}`);
                         continue;
                     }
                     
                     const trackKey = `${projectId}_${trackName}_${normalizedDateStr}`;
                     
-                    if (existingTracks.has(trackKey)) {
-                        log(`ℹ️ Трек УЖЕ СУЩЕСТВУЕТ в базе: ${trackKey}`);
-                    } else {
-                        log(`🆕 НОВЫЙ ТРЕК! Будет добавлен: ${trackKey}`);
+                    if (!existingTracks.has(trackKey)) {
                         newReleases.push({
                             project_id: projectId,
                             track_name: trackName,
@@ -717,20 +682,23 @@
                 if (newReleases.length > 0) {
                     log(`\n➕ НАЙДЕНО НОВЫХ ТРЕКОВ: ${newReleases.length}`);
                     for (const release of newReleases) {
-                        log(`   Добавляем: проект ${release.project_id}, трек "${release.track_name}", дата ${release.release_date}`);
                         const { error } = await supabaseClient.from('releases').insert([release]);
                         if (error) {
                             log(`❌ Ошибка при добавлении:`, error);
                         } else {
-                            log(`✅ Успешно добавлен`);
+                            log(`✅ Успешно добавлен: ${release.track_name}`);
                         }
                     }
                     await loadAllProjects();
                     
                     const badge = document.getElementById('newTracksBadge');
-                    badge.style.display = 'inline-block';
-                    badge.textContent = `🎵 +${newReleases.length}`;
-                    setTimeout(() => { badge.style.display = 'none'; }, 3000);
+                    if (badge) {
+                        badge.style.display = 'inline-block';
+                        badge.textContent = `🎵 +${newReleases.length}`;
+                        setTimeout(() => { 
+                            if (badge) badge.style.display = 'none'; 
+                        }, 3000);
+                    }
                 } else {
                     log('\nℹ️ НОВЫХ ТРЕКОВ НЕ НАЙДЕНО');
                 }
@@ -741,7 +709,8 @@
                 console.error('❌ ОШИБКА:', error);
             } finally {
                 isChecking = false;
-                document.getElementById('autoUpdateStatus').classList.remove('checking');
+                const statusElement = document.getElementById('autoUpdateStatus');
+                if (statusElement) statusElement.classList.remove('checking');
                 updateLastCheckTime();
             }
         }
@@ -751,14 +720,15 @@
             const diff = Math.floor((now - lastCheckTime) / 1000);
             let timeText = 'сейчас';
             if (diff > 3) timeText = `${diff}с`;
-            document.getElementById('lastUpdateTime').innerHTML = `⏱️ ${timeText}`;
+            const timeElement = document.getElementById('lastUpdateTime');
+            if (timeElement) timeElement.innerHTML = `⏱️ ${timeText}`;
         }
 
         async function createInitialProjects() {
             const { data: projects } = await supabaseClient.from('projects').select('*');
             if (!projects || projects.length === 0) {
                 log('Создаем начальные проекты...');
-                await supabaseClient.from('projects').insert([
+                const initialProjects = [
                     { name: 'Placcebo Beats', image_url: 'https://via.placeholder.com/300x150/667eea/ffffff?text=PB', release_days: [2, 5], yandex_link: YANDEX_MUSIC_LINKS['Placcebo Beats'] },
                     { name: 'PLENUM', image_url: 'https://via.placeholder.com/300x150/764ba2/ffffff?text=PLENUM', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['PLENUM'] },
                     { name: 'Мир детства', image_url: 'https://via.placeholder.com/300x150/28a745/ffffff?text=МД', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Мир детства'] },
@@ -772,20 +742,21 @@
                     { name: 'Nina Vey', image_url: 'https://via.placeholder.com/300x150/dc3545/ffffff?text=NV', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Nina Vey'] },
                     { name: 'FLARIX', image_url: 'https://via.placeholder.com/300x150/6f42c1/ffffff?text=FLARIX', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['FLARIX'] },
                     { name: 'Маленькие чудеса', image_url: 'https://via.placeholder.com/300x150/ff6b6b/ffffff?text=МЧ', release_days: [5], yandex_link: YANDEX_MUSIC_LINKS['Маленькие чудеса'] }
-                ]);
+                ];
+                for (const project of initialProjects) {
+                    await supabaseClient.from('projects').insert([project]);
+                }
+                log('✅ Начальные проекты созданы');
             }
         }
-
-        // ИСПРАВЛЕННАЯ ФУНКЦИЯ - возвращает только последний трек для каждого дня
+        
         function getLastReleaseForDay(releases, targetDay) {
             if (!releases || releases.length === 0) return null;
             
-            // Фильтруем по дню и сортируем по дате (новые сверху)
             const dayReleases = releases
                 .filter(r => new Date(r.release_date).getDay() === targetDay)
                 .sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
             
-            // Возвращаем ТОЛЬКО САМЫЙ ПОСЛЕДНИЙ трек для этого дня
             return dayReleases.length > 0 ? dayReleases[0] : null;
         }
         
@@ -835,7 +806,10 @@
             log('🔄 Загрузка всех проектов...');
             
             const { data: projects } = await supabaseClient.from('projects').select('*');
-            if (!projects) return;
+            if (!projects || projects.length === 0) {
+                log('⚠️ Нет проектов для загрузки');
+                return;
+            }
             
             const fixedOrder = ['Placcebo Beats', 'PLENUM', 'Мир детства', 'Звёздная ночь', 'Дом Медитации'];
             const otherProjects = projects.filter(p => !fixedOrder.includes(p.name));
@@ -866,6 +840,8 @@
             sortedOthers.forEach(item => finalProjects.push(item.project));
             
             const grid = document.getElementById('projectsGrid');
+            if (!grid) return;
+            
             grid.innerHTML = '';
             
             for (const project of finalProjects) {
@@ -886,9 +862,8 @@
             card.className = 'project-card';
             
             let imageHtml = '<div class="project-image" style="background:#ddd;display:flex;align-items:center;justify-content:center;">📷</div>';
-            if (project.image_url) imageHtml = `<img src="${project.image_url}" class="project-image">`;
+            if (project.image_url) imageHtml = `<img src="${project.image_url}" class="project-image" onerror="this.src='https://via.placeholder.com/300x150/cccccc/ffffff?text=No+Image'">`;
 
-            // Добавляем ссылку на Яндекс Музыку
             let yandexLinkHtml = '';
             const yandexLink = project.yandex_link || YANDEX_MUSIC_LINKS[project.name];
             if (yandexLink) {
@@ -901,7 +876,6 @@
             let lastReleasesHtml = ''; 
             const lastReleasesByDay = [];
             
-            // Для каждого дня релиза берем ТОЛЬКО ПОСЛЕДНИЙ трек
             releaseDays.forEach(day => { 
                 const last = getLastReleaseForDay(releases, day); 
                 if (last) lastReleasesByDay.push({ dayName: DAYS_FULL[day], release: last }); 
@@ -986,7 +960,6 @@
             if (!name) { alert('Введите название'); return; }
             if (releaseDays.length === 0) { alert('Выберите дни'); return; }
             
-            // Добавляем проект в Supabase
             const { data, error } = await supabaseClient.from('projects').insert([{ 
                 name, 
                 image_url: image || null, 
@@ -1000,10 +973,8 @@
                 return;
             }
             
-            // Автоматически добавляем проект в разрешенный список
             if (!GOOGLE_SHEETS_CONFIG.allowedProjects.includes(name)) {
                 GOOGLE_SHEETS_CONFIG.allowedProjects.push(name);
-                // Сохраняем в localStorage для постоянства
                 localStorage.setItem('allowedProjects', JSON.stringify(GOOGLE_SHEETS_CONFIG.allowedProjects));
                 console.log(`✅ Проект "${name}" добавлен в разрешенный список`);
             }
@@ -1014,8 +985,6 @@
             document.querySelectorAll('#projectForm input[type="checkbox"]').forEach(cb => cb.checked = false);
             
             await loadAllProjects();
-            
-            // Показываем уведомление
             alert(`Проект "${name}" успешно добавлен и будет автоматически импортироваться из Google Sheets`);
         };
         
@@ -1046,6 +1015,7 @@
             if (event.target === modal) closeModal(); 
         };
 
+        // Обновляем время последней проверки каждую секунду
         setInterval(updateLastCheckTime, 1000);
     </script>
 </body>
