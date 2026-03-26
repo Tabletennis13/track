@@ -126,6 +126,7 @@
             font-size: 12px;
             display: flex;
             flex-direction: column;
+            transition: all 0.2s ease;
         }
         
         .project-image {
@@ -395,6 +396,9 @@
             .mobile-add-btn {
                 display: flex;
             }
+            .form-section {
+                display: block;
+            }
         }
         
         .section-divider {
@@ -413,11 +417,22 @@
             margin: 0 5px;
             vertical-align: middle;
         }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .project-card {
+            animation: fadeIn 0.3s ease;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="projects-grid" id="projectsGrid"></div>
+        <div class="projects-grid" id="projectsGrid">
+            <div style="text-align: center; padding: 50px; color: white;">Загрузка проектов...</div>
+        </div>
 
         <div class="section-divider">УПРАВЛЕНИЕ</div>
 
@@ -453,10 +468,10 @@
         <div class="auto-update-status" id="autoUpdateStatus">
             <div class="status-indicator">
                 <div class="pulse-dot"></div>
-                <span id="autoUpdateMessage">Авто 10с</span>
+                <span id="autoUpdateMessage">Автообновление каждые 10с</span>
             </div>
             <div class="last-check" id="lastUpdateTime">
-                ⏱️ только что
+                ⏱️ ожидание...
             </div>
             <div id="newTracksBadge" style="display: none;" class="new-tracks-badge">
                 🎵 Новые!
@@ -489,24 +504,12 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxeWNqZmNqdGRhd3lyeXNncmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MDE5NzAsImV4cCI6MjA4MjE3Nzk3MH0.LEOUMFAd1cz_1e4uawJcaZLPCMqAQHEWM52Oy7fDjsE';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Загружаем разрешенные проекты из localStorage или используем начальный список
         let allowedProjects = JSON.parse(localStorage.getItem('allowedProjects')) || [
-            'Placcebo Beats',
-            'PLENUM',
-            'Мир детства',
-            'Звёздная ночь',
-            'Дом Медитации',
-            'Sergey Ryabov',
-            'Romano Lunario',
-            'IVASHKOV',
-            'Гр. ОКРАИНА',
-            'LOGUNOVA',
-            'Nina Vey',
-            'FLARIX',
-            'Маленькие чудеса'
+            'Placcebo Beats', 'PLENUM', 'Мир детства', 'Звёздная ночь', 'Дом Медитации',
+            'Sergey Ryabov', 'Romano Lunario', 'IVASHKOV', 'Гр. ОКРАИНА', 'LOGUNOVA', 
+            'Nina Vey', 'FLARIX', 'Маленькие чудеса'
         ];
 
-        // Словарь ссылок на Яндекс Музыку
         const YANDEX_MUSIC_LINKS = {
             'Placcebo Beats': 'https://music.yandex.ru/artist/5087681',
             'PLENUM': 'https://music.yandex.ru/artist/21004707',
@@ -539,14 +542,11 @@
         let autoUpdateTimer = null;
         let isChecking = false;
         let lastCheckTime = new Date();
-        let checkIntervalSeconds = 10; // Интервал проверки в секундах
-
-        const DEBUG = true;
+        let projectsCache = null;
+        let releasesCache = new Map();
 
         function log(...args) {
-            if (DEBUG) {
-                console.log(...args);
-            }
+            console.log(...args);
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -557,19 +557,19 @@
             await createInitialProjects();
             await loadAllProjects();
             startAutoUpdate();
+            updateLastCheckTime();
+            setInterval(updateLastCheckTime, 1000);
         }
 
         function startAutoUpdate() {
             if (autoUpdateTimer) clearInterval(autoUpdateTimer);
-            // Запускаем интервал с фиксированной задержкой
             autoUpdateTimer = setInterval(() => {
                 checkForNewTracks();
-            }, checkIntervalSeconds * 1000);
-            log(`✅ Автообновление запущено с интервалом ${checkIntervalSeconds} секунд`);
+            }, 10000);
+            log('✅ Автообновление запущено с интервалом 10 секунд');
         }
 
         async function checkForNewTracks() {
-            // Защита от одновременных вызовов
             if (isChecking) {
                 log('⏳ Проверка уже выполняется, пропускаем...');
                 return;
@@ -581,39 +581,22 @@
                 const statusElement = document.getElementById('autoUpdateStatus');
                 if (statusElement) statusElement.classList.add('checking');
                 
-                log('🔍 АВТОМАТИЧЕСКАЯ ПРОВЕРКА НОВЫХ ТРЕКОВ...');
+                log('🔍 Проверка новых треков...');
                 
                 const range = encodeURIComponent(`${GOOGLE_SHEETS_CONFIG.sheetName}!A2:J1000`);
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.sheetId}/values/${range}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
                 
-                log('📥 Загружаем данные из Google Sheets...');
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`Ошибка загрузки: ${response.status}`);
                 
                 const data = await response.json();
                 const googleRows = data.values || [];
-                log(`📊 ПОЛУЧЕНО СТРОК ИЗ ТАБЛИЦЫ: ${googleRows.length}`);
-                
-                const validRows = googleRows.filter(row => 
-                    row.length > GOOGLE_SHEETS_CONFIG.projectNameColumnIndex && 
-                    row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex] && 
-                    row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex].trim() !== '' &&
-                    row.length > GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex &&
-                    row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex] &&
-                    row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex].trim() !== ''
-                );
-                log(`✅ ВАЛИДНЫХ СТРОК (есть название и дата): ${validRows.length}`);
                 
                 const { data: projects } = await supabaseClient.from('projects').select('id, name');
-                if (!projects || projects.length === 0) {
-                    log('⚠️ Нет проектов в базе данных');
-                    return;
-                }
+                if (!projects || projects.length === 0) return;
                 
                 const projectMap = new Map();
-                projects.forEach(p => {
-                    projectMap.set(p.name, p.id);
-                });
+                projects.forEach(p => projectMap.set(p.name, p.id));
                 
                 const projectIds = Array.from(projectMap.values());
                 const { data: existingReleases } = await supabaseClient.from('releases').select('track_name, release_date, project_id').in('project_id', projectIds);
@@ -623,13 +606,17 @@
                     const normalizedDate = new Date(r.release_date).toISOString().split('T')[0];
                     existingTracks.add(`${r.project_id}_${r.track_name}_${normalizedDate}`);
                 });
-                log(`💿 СУЩЕСТВУЮЩИХ ТРЕКОВ В БАЗЕ: ${existingTracks.size}`);
                 
                 const newReleases = [];
                 
-                for (const [index, row] of validRows.entries()) {
+                for (const row of googleRows) {
+                    if (row.length <= GOOGLE_SHEETS_CONFIG.projectNameColumnIndex) continue;
+                    if (row.length <= GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex) continue;
+                    
                     const fullTitle = row[GOOGLE_SHEETS_CONFIG.projectNameColumnIndex]?.trim();
                     const dateStr = row[GOOGLE_SHEETS_CONFIG.releaseDateColumnIndex]?.trim();
+                    
+                    if (!fullTitle || !dateStr) continue;
                     
                     const separatorIndex = fullTitle.indexOf(' - ');
                     if (separatorIndex === -1) continue;
@@ -638,18 +625,9 @@
                     const trackName = fullTitle.substring(separatorIndex + 3).trim();
                     
                     if (!projectNameFromSheet || !trackName) continue;
+                    if (!GOOGLE_SHEETS_CONFIG.allowedProjects.includes(projectNameFromSheet)) continue;
                     
-                    let matchedProject = null;
-                    for (const allowed of GOOGLE_SHEETS_CONFIG.allowedProjects) {
-                        if (allowed === projectNameFromSheet) {
-                            matchedProject = allowed;
-                            break;
-                        }
-                    }
-                    
-                    if (!matchedProject) continue;
-                    
-                    const projectId = projectMap.get(matchedProject);
+                    const projectId = projectMap.get(projectNameFromSheet);
                     if (!projectId) continue;
                     
                     let normalizedDateStr;
@@ -680,16 +658,17 @@
                 }
                 
                 if (newReleases.length > 0) {
-                    log(`\n➕ НАЙДЕНО НОВЫХ ТРЕКОВ: ${newReleases.length}`);
+                    log(`➕ Найдено новых треков: ${newReleases.length}`);
                     for (const release of newReleases) {
                         const { error } = await supabaseClient.from('releases').insert([release]);
-                        if (error) {
-                            log(`❌ Ошибка при добавлении:`, error);
-                        } else {
-                            log(`✅ Успешно добавлен: ${release.track_name}`);
+                        if (!error) {
+                            log(`✅ Добавлен: ${release.track_name}`);
                         }
                     }
-                    await loadAllProjects();
+                    
+                    // Очищаем кэш и обновляем только изменившиеся проекты
+                    releasesCache.clear();
+                    await updateProjectsData(newReleases.map(r => r.project_id));
                     
                     const badge = document.getElementById('newTracksBadge');
                     if (badge) {
@@ -699,29 +678,56 @@
                             if (badge) badge.style.display = 'none'; 
                         }, 3000);
                     }
-                } else {
-                    log('\nℹ️ НОВЫХ ТРЕКОВ НЕ НАЙДЕНО');
                 }
                 
                 lastCheckTime = new Date();
                 
             } catch (error) {
-                console.error('❌ ОШИБКА:', error);
+                console.error('❌ Ошибка:', error);
             } finally {
                 isChecking = false;
                 const statusElement = document.getElementById('autoUpdateStatus');
                 if (statusElement) statusElement.classList.remove('checking');
-                updateLastCheckTime();
             }
         }
-
-        function updateLastCheckTime() {
-            const now = new Date();
-            const diff = Math.floor((now - lastCheckTime) / 1000);
-            let timeText = 'сейчас';
-            if (diff > 3) timeText = `${diff}с`;
-            const timeElement = document.getElementById('lastUpdateTime');
-            if (timeElement) timeElement.innerHTML = `⏱️ ${timeText}`;
+        
+        // Функция для обновления только измененных проектов
+        async function updateProjectsData(updatedProjectIds) {
+            if (!projectsCache) {
+                await loadAllProjects();
+                return;
+            }
+            
+            for (const projectId of updatedProjectIds) {
+                const { data: releases } = await supabaseClient
+                    .from('releases')
+                    .select('*')
+                    .eq('project_id', projectId)
+                    .order('release_date', { ascending: false });
+                
+                if (releases) {
+                    releasesCache.set(projectId, releases);
+                }
+            }
+            
+            // Обновляем карточки только для измененных проектов
+            for (const projectId of updatedProjectIds) {
+                const project = projectsCache.find(p => p.id === projectId);
+                if (project) {
+                    const releases = releasesCache.get(projectId) || [];
+                    updateProjectCard(projectId, project, releases);
+                }
+            }
+        }
+        
+        // Функция обновления отдельной карточки
+        function updateProjectCard(projectId, project, releases) {
+            const card = document.querySelector(`.project-card[data-project-id="${projectId}"]`);
+            if (card) {
+                const newCard = createProjectCardElement(project, releases);
+                newCard.setAttribute('data-project-id', projectId);
+                card.parentNode.replaceChild(newCard, card);
+            }
         }
 
         async function createInitialProjects() {
@@ -807,15 +813,18 @@
             
             const { data: projects } = await supabaseClient.from('projects').select('*');
             if (!projects || projects.length === 0) {
-                log('⚠️ Нет проектов для загрузки');
+                document.getElementById('projectsGrid').innerHTML = '<div style="text-align: center; padding: 50px; color: white;">Нет проектов</div>';
                 return;
             }
+            
+            projectsCache = projects;
             
             const fixedOrder = ['Placcebo Beats', 'PLENUM', 'Мир детства', 'Звёздная ночь', 'Дом Медитации'];
             const otherProjects = projects.filter(p => !fixedOrder.includes(p.name));
             
             const sortedOthers = await Promise.all(otherProjects.map(async (project) => {
                 const { data: releases } = await supabaseClient.from('releases').select('*').eq('project_id', project.id);
+                releasesCache.set(project.id, releases || []);
                 let minDays = Infinity;
                 if (releases?.length) {
                     const days = project.release_days?.length ? project.release_days : [5];
@@ -840,24 +849,24 @@
             sortedOthers.forEach(item => finalProjects.push(item.project));
             
             const grid = document.getElementById('projectsGrid');
-            if (!grid) return;
-            
             grid.innerHTML = '';
             
             for (const project of finalProjects) {
-                const { data: releases } = await supabaseClient
-                    .from('releases')
-                    .select('*')
-                    .eq('project_id', project.id)
-                    .order('release_date', { ascending: false });
-                
-                grid.appendChild(createProjectCard(project, releases || []));
+                let releases = releasesCache.get(project.id);
+                if (!releases) {
+                    const { data } = await supabaseClient.from('releases').select('*').eq('project_id', project.id).order('release_date', { ascending: false });
+                    releases = data || [];
+                    releasesCache.set(project.id, releases);
+                }
+                const card = createProjectCardElement(project, releases);
+                card.setAttribute('data-project-id', project.id);
+                grid.appendChild(card);
             }
             
             log('✅ Загрузка проектов завершена');
         }
 
-        function createProjectCard(project, releases) {
+        function createProjectCardElement(project, releases) {
             const card = document.createElement('div'); 
             card.className = 'project-card';
             
@@ -871,7 +880,7 @@
             }
 
             let releaseDays = project.release_days?.length ? project.release_days : [5];
-            let releaseDaysHtml = project.release_days ? `<div class="release-days"><span>${project.release_days.map(d => DAYS_FULL[d]).join(' ')}</span></div>` : '';
+            let releaseDaysHtml = `<div class="release-days"><span>${releaseDays.map(d => DAYS_FULL[d]).join(' ')}</span></div>`;
 
             let lastReleasesHtml = ''; 
             const lastReleasesByDay = [];
@@ -930,6 +939,21 @@
             div.textContent = text; 
             return div.innerHTML; 
         }
+        
+        function updateLastCheckTime() {
+            const now = new Date();
+            const diff = Math.floor((now - lastCheckTime) / 1000);
+            let timeText = 'ожидание...';
+            if (diff <= 10) {
+                timeText = 'только что';
+            } else if (diff < 60) {
+                timeText = `${diff}с назад`;
+            } else {
+                timeText = `${Math.floor(diff / 60)}м назад`;
+            }
+            const timeElement = document.getElementById('lastUpdateTime');
+            if (timeElement) timeElement.innerHTML = `⏱️ ${timeText}`;
+        }
 
         window.openReleaseModal = function(projectId) { 
             selectedProjectId = projectId; 
@@ -960,12 +984,12 @@
             if (!name) { alert('Введите название'); return; }
             if (releaseDays.length === 0) { alert('Выберите дни'); return; }
             
-            const { data, error } = await supabaseClient.from('projects').insert([{ 
+            const { error } = await supabaseClient.from('projects').insert([{ 
                 name, 
                 image_url: image || null, 
                 release_days: releaseDays,
                 yandex_link: yandexLink || null
-            }]).select();
+            }]);
             
             if (error) {
                 console.error('Ошибка при добавлении проекта:', error);
@@ -976,7 +1000,6 @@
             if (!GOOGLE_SHEETS_CONFIG.allowedProjects.includes(name)) {
                 GOOGLE_SHEETS_CONFIG.allowedProjects.push(name);
                 localStorage.setItem('allowedProjects', JSON.stringify(GOOGLE_SHEETS_CONFIG.allowedProjects));
-                console.log(`✅ Проект "${name}" добавлен в разрешенный список`);
             }
             
             document.getElementById('projectName').value = ''; 
@@ -984,8 +1007,9 @@
             document.getElementById('projectYandexLink').value = '';
             document.querySelectorAll('#projectForm input[type="checkbox"]').forEach(cb => cb.checked = false);
             
+            releasesCache.clear();
             await loadAllProjects();
-            alert(`Проект "${name}" успешно добавлен и будет автоматически импортироваться из Google Sheets`);
+            alert(`Проект "${name}" успешно добавлен`);
         };
         
         window.addRelease = async function() {
@@ -1001,6 +1025,7 @@
                 release_date: date 
             }]);
             
+            releasesCache.delete(selectedProjectId);
             closeModal(); 
             await loadAllProjects();
         };
@@ -1014,9 +1039,6 @@
             const modal = document.getElementById('releaseModal'); 
             if (event.target === modal) closeModal(); 
         };
-
-        // Обновляем время последней проверки каждую секунду
-        setInterval(updateLastCheckTime, 1000);
     </script>
 </body>
 </html>
