@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>Release Tracker - VHQ Music</title>
     <style>
+        /* --- СТИЛИ --- */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
@@ -548,13 +549,11 @@
             startAutoUpdate();
             updateLastCheckTime();
             setInterval(updateLastCheckTime, 1000);
-            // Принудительная проверка через 1 секунду после загрузки
             setTimeout(() => checkForNewTracks(), 1000);
         }
 
         function startAutoUpdate() {
             if (autoUpdateTimer) clearInterval(autoUpdateTimer);
-            // Ускоренный интервал - каждые 3 секунды, чтобы информация приходила мгновенно
             autoUpdateTimer = setInterval(() => {
                 checkForNewTracks();
             }, 3000);
@@ -658,9 +657,8 @@
                         }
                     }
                     
-                    // Полностью перезагружаем кэш и обновляем все карточки
                     releasesCache.clear();
-                    await loadAllProjects(); // Полная перезагрузка гарантирует актуальность
+                    await loadAllProjects();
                     
                     const badge = document.getElementById('newTracksBadge');
                     if (badge) {
@@ -742,13 +740,6 @@
                     await supabaseClient.from('projects').insert([project]);
                 }
                 log('✅ Начальные проекты созданы');
-            } else {
-                // Проверяем и обновляем дни для Placcebo Beats, чтобы гарантировать [2,5]
-                const pbProject = projects.find(p => p.name === 'Placcebo Beats');
-                if (pbProject && (!pbProject.release_days || pbProject.release_days.length !== 2 || !pbProject.release_days.includes(2) || !pbProject.release_days.includes(5))) {
-                    log('🔧 Исправляем дни релизов для Placcebo Beats (вторник и пятница)');
-                    await supabaseClient.from('projects').update({ release_days: [2, 5] }).eq('id', pbProject.id);
-                }
             }
         }
         
@@ -813,16 +804,8 @@
                 return;
             }
             
-            // Принудительно для Placcebo Beats задаем дни [2,5] если вдруг сбились
-            const pbTarget = projects.find(p => p.name === 'Placcebo Beats');
-            if (pbTarget && (!pbTarget.release_days || pbTarget.release_days.length !== 2 || !pbTarget.release_days.includes(2) || !pbTarget.release_days.includes(5))) {
-                pbTarget.release_days = [2, 5];
-                await supabaseClient.from('projects').update({ release_days: [2, 5] }).eq('id', pbTarget.id);
-            }
-            
             projectsCache = projects;
             
-            // Загружаем все релизы для всех проектов
             const { data: allReleases } = await supabaseClient.from('releases').select('*');
             if (allReleases) {
                 releasesCache.clear();
@@ -830,7 +813,6 @@
                     if (!releasesCache.has(r.project_id)) releasesCache.set(r.project_id, []);
                     releasesCache.get(r.project_id).push(r);
                 });
-                // Сортируем релизы для каждого проекта по дате
                 for (let [pid, rels] of releasesCache.entries()) {
                     rels.sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
                 }
@@ -891,7 +873,6 @@
             }
 
             let releaseDays = project.release_days?.length ? project.release_days : [5];
-            // Для Placcebo Beats жестко задаем оба дня для отображения
             if (project.name === 'Placcebo Beats') {
                 releaseDays = [2, 5];
             }
@@ -917,7 +898,6 @@
             }
 
             let signalsHtml = '<div class="signals-container">';
-            // Показываем сигналы для всех дней релизов (для Placcebo Beats оба дня)
             releaseDays.forEach(day => {
                 const last = getLastReleaseForDay(releases, day);
                 if (last) {
@@ -932,7 +912,6 @@
                         `;
                     }
                 } else {
-                    // Если нет последнего релиза для этого дня, показываем нейтральный сигнал
                     signalsHtml += `
                         <div class="next-track-signal signal-yellow">
                             <div class="signal-title">📅 <span class="signal-day">${DAYS_FULL[day]}</span></div>
