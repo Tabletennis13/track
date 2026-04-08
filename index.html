@@ -458,7 +458,7 @@
         <div class="auto-update-status" id="autoUpdateStatus">
             <div class="status-indicator">
                 <div class="pulse-dot"></div>
-                <span id="autoUpdateMessage">Автообновление каждые 3с</span>
+                <span id="autoUpdateMessage">Автообновление каждые 10с</span>
             </div>
             <div class="last-check" id="lastUpdateTime">
                 ⏱️ ожидание...
@@ -549,15 +549,14 @@
             startAutoUpdate();
             updateLastCheckTime();
             setInterval(updateLastCheckTime, 1000);
-            setTimeout(() => checkForNewTracks(), 1000);
         }
 
         function startAutoUpdate() {
             if (autoUpdateTimer) clearInterval(autoUpdateTimer);
             autoUpdateTimer = setInterval(() => {
                 checkForNewTracks();
-            }, 3000);
-            log('✅ Автообновление запущено с интервалом 3 секунды');
+            }, 10000);
+            log('✅ Автообновление запущено с интервалом 10 секунд');
         }
 
         async function checkForNewTracks() {
@@ -657,8 +656,9 @@
                         }
                     }
                     
+                    // Очищаем кэш и обновляем только изменившиеся проекты
                     releasesCache.clear();
-                    await loadAllProjects();
+                    await updateProjectsData(newReleases.map(r => r.project_id));
                     
                     const badge = document.getElementById('newTracksBadge');
                     if (badge) {
@@ -681,6 +681,7 @@
             }
         }
         
+        // Функция для обновления только измененных проектов
         async function updateProjectsData(updatedProjectIds) {
             if (!projectsCache) {
                 await loadAllProjects();
@@ -699,6 +700,7 @@
                 }
             }
             
+            // Обновляем карточки только для измененных проектов
             for (const projectId of updatedProjectIds) {
                 const project = projectsCache.find(p => p.id === projectId);
                 if (project) {
@@ -708,6 +710,7 @@
             }
         }
         
+        // Функция обновления отдельной карточки
         function updateProjectCard(projectId, project, releases) {
             const card = document.querySelector(`.project-card[data-project-id="${projectId}"]`);
             if (card) {
@@ -806,23 +809,12 @@
             
             projectsCache = projects;
             
-            const { data: allReleases } = await supabaseClient.from('releases').select('*');
-            if (allReleases) {
-                releasesCache.clear();
-                allReleases.forEach(r => {
-                    if (!releasesCache.has(r.project_id)) releasesCache.set(r.project_id, []);
-                    releasesCache.get(r.project_id).push(r);
-                });
-                for (let [pid, rels] of releasesCache.entries()) {
-                    rels.sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
-                }
-            }
-            
             const fixedOrder = ['Placcebo Beats', 'PLENUM', 'Мир детства', 'Звёздная ночь', 'Дом Медитации'];
             const otherProjects = projects.filter(p => !fixedOrder.includes(p.name));
             
             const sortedOthers = await Promise.all(otherProjects.map(async (project) => {
-                const releases = releasesCache.get(project.id) || [];
+                const { data: releases } = await supabaseClient.from('releases').select('*').eq('project_id', project.id);
+                releasesCache.set(project.id, releases || []);
                 let minDays = Infinity;
                 if (releases?.length) {
                     const days = project.release_days?.length ? project.release_days : [5];
@@ -850,7 +842,12 @@
             grid.innerHTML = '';
             
             for (const project of finalProjects) {
-                const releases = releasesCache.get(project.id) || [];
+                let releases = releasesCache.get(project.id);
+                if (!releases) {
+                    const { data } = await supabaseClient.from('releases').select('*').eq('project_id', project.id).order('release_date', { ascending: false });
+                    releases = data || [];
+                    releasesCache.set(project.id, releases);
+                }
                 const card = createProjectCardElement(project, releases);
                 card.setAttribute('data-project-id', project.id);
                 grid.appendChild(card);
@@ -873,9 +870,6 @@
             }
 
             let releaseDays = project.release_days?.length ? project.release_days : [5];
-            if (project.name === 'Placcebo Beats') {
-                releaseDays = [2, 5];
-            }
             let releaseDaysHtml = `<div class="release-days"><span>${releaseDays.map(d => DAYS_FULL[d]).join(' ')}</span></div>`;
 
             let lastReleasesHtml = ''; 
@@ -898,7 +892,7 @@
             }
 
             let signalsHtml = '<div class="signals-container">';
-            releaseDays.forEach(day => {
+            releaseDays.slice(0,2).forEach(day => {
                 const last = getLastReleaseForDay(releases, day);
                 if (last) {
                     const info = calculateDeadlineForDay(last.release_date, day);
@@ -911,13 +905,6 @@
                             </div>
                         `;
                     }
-                } else {
-                    signalsHtml += `
-                        <div class="next-track-signal signal-yellow">
-                            <div class="signal-title">📅 <span class="signal-day">${DAYS_FULL[day]}</span></div>
-                            <div class="signal-deadline">нет данных</div>
-                        </div>
-                    `;
                 }
             });
             signalsHtml += '</div>';
@@ -947,7 +934,7 @@
             const now = new Date();
             const diff = Math.floor((now - lastCheckTime) / 1000);
             let timeText = 'ожидание...';
-            if (diff <= 3) {
+            if (diff <= 10) {
                 timeText = 'только что';
             } else if (diff < 60) {
                 timeText = `${diff}с назад`;
